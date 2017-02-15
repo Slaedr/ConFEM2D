@@ -60,7 +60,7 @@ class LagrangeP1TriangleElement(P1TriangleElement):
     def getBasisFunction(self, idof, x, y):
         pass
 
-class LagrangeP1TriangleElement(P2TriangleElement):
+class LagrangeP2TriangleElement(P2TriangleElement):
     """ Triangular element with Lagrange P2 basis for the trial and test spaces.
     """
     def getBasisFunction(self, idof, x, y):
