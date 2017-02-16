@@ -2,6 +2,7 @@
 """
 
 import numpy as np
+import numpy.linalg
 from numba import jit, generated_jit
 from mesh import *
 from quadrature import GLQuadrature1D, GLQuadrature2DTriangle
@@ -23,6 +24,11 @@ class Element:
         pass
     def getJacobianDet(self, x, y):
         pass
+    def getJacobian(self, x, y, jac):
+        """ The ndim x ndim array jac contains the Jacobian matrix of the geometric mapping on return.
+        Returns the value of the determinant.
+        """
+        pass
     def getBasisFunction(self, idof, x, y):
         pass
 
@@ -37,8 +43,10 @@ class P1TriangleElement(Element):
         else:
             print("! P1TriangleElement: Element with " + str(self.nnodel) + " nodes not available!")
 
-    def getJacobianDet(self, x, y):
-        pass
+    def getJacobian(self, x, y, jac):
+        jac[:,0] = self.phynodes[1,:]-self.phynodes[0,:]
+        jac[:,1] = self.phynodes[2,:]-self.phynodes[0,:]
+        return np.linalg.det(jac)
 
 class P2TriangleElement(Element):
     def setReferenceElementNodes(self):
@@ -51,8 +59,10 @@ class P2TriangleElement(Element):
         else:
             print("! P2TriangleElement: Element with " + str(self.nnodel) + " nodes not available!")
     
-    def getJacobianDet(self, x, y):
-        pass
+    def getJacobian(self, x, y, jac):
+        jac[:,0] = self.phynodes[0,:]*(-3-4*x-4*y) +self.phynodes[1,:]*(4*x-1) +self.phynodes[3,:]*4*(1-2*x-y) +self.phynodes[4,:]*4*y -self.phynodes[5,:]*y
+        jac[:,1] = self.phynodes[0,:]*(-3-4*y-4*x) +self.phynodes[2,:]*(4*y-1) -self.phynodes[3,:]*4*x +self.phynodes[4,:]*4*x +self.phynodes[5,:]*4*(1-2*y-x)
+        return np.linalg.det(jac)
 
 class LagrangeP1TriangleElement(P1TriangleElement):
     """ Triangular element with Lagrange P1 basis for the trial and test spaces.
