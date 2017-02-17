@@ -24,12 +24,19 @@ class Element:
         pass
     def getJacobianDet(self, x, y):
         pass
-    def getJacobian(self, x, y, jac):
-        """ The ndim x ndim array jac contains the Jacobian matrix of the geometric mapping on return.
+    def getJacobian(self, x, y, jac, jacinv):
+        """ The ndim x ndim array jac contains the Jacobian matrix of the geometric mapping on return
+        and jacinv contains its inverse.
         Returns the value of the determinant.
         """
         pass
-    def getBasisFunction(self, idof, x, y):
+    def getBasisFunctions(self, x, y, bvals):
+        """ bvals must be preallocated as ndofs x 1. On return, it contains values of the basis function at (x,y).
+        """
+        pass
+    def getBasisGradients(self, x, y, bgrvals):
+        """ bgrvals must be ndofs x ndim. Contains partial derivatives of the basis functions on return.
+        """
         pass
 
 class P1TriangleElement(Element):
@@ -43,10 +50,13 @@ class P1TriangleElement(Element):
         else:
             print("! P1TriangleElement: Element with " + str(self.nnodel) + " nodes not available!")
 
-    def getJacobian(self, x, y, jac):
+    def getJacobian(self, x, y, jac, jacinv):
         jac[:,0] = self.phynodes[1,:]-self.phynodes[0,:]
         jac[:,1] = self.phynodes[2,:]-self.phynodes[0,:]
-        return np.linalg.det(jac)
+        jdet = jac[0,0]*jac[1,1] - jac[0,1]*jac[1,0]
+        jacinv[0,0] = jac[1,1]/jdet; jacinv[0,1] = -jac[0,1]/jdet
+        jacinv[1,0] = -jac[1,0]/jdet; jacinv[1,1] = jac[0,0]/jdet
+        return jdet
 
 class P2TriangleElement(Element):
     def setReferenceElementNodes(self):
@@ -59,39 +69,62 @@ class P2TriangleElement(Element):
         else:
             print("! P2TriangleElement: Element with " + str(self.nnodel) + " nodes not available!")
     
-    def getJacobian(self, x, y, jac):
+    def getJacobian(self, x, y, jac, jacinv):
         jac[:,0] = self.phynodes[0,:]*(-3-4*x-4*y) +self.phynodes[1,:]*(4*x-1) +self.phynodes[3,:]*4*(1-2*x-y) +self.phynodes[4,:]*4*y -self.phynodes[5,:]*y
         jac[:,1] = self.phynodes[0,:]*(-3-4*y-4*x) +self.phynodes[2,:]*(4*y-1) -self.phynodes[3,:]*4*x +self.phynodes[4,:]*4*x +self.phynodes[5,:]*4*(1-2*y-x)
-        return np.linalg.det(jac)
+        jdet = jac[0,0]*jac[1,1] - jac[0,1]*jac[1,0]
+        jacinv[0,0] = jac[1,1]/jdet; jacinv[0,1] = -jac[0,1]/jdet
+        jacinv[1,0] = -jac[1,0]/jdet; jacinv[1,1] = jac[0,0]/jdet
+        return jdet
 
 class LagrangeP1TriangleElement(P1TriangleElement):
-    """ Triangular element with Lagrange P1 basis for the trial and test spaces.
+    """ Triangular element with Lagrange P1 basis for the trial/test space.
     """
-    def getBasisFunction(self, idof, x, y):
-        pass
+    def getBasisFunctions(self, x, y, bvals):
+        bvals[:] = [1.0-x-y, x, y]
+
+    def getBasisGradients(self, x, y, bgrvals):
+        bgrvals[0,:] = [-1.0, -1.0]
+        bgrvals[1,:] = [1.0, 0.0]
+        bgrvals[2,:] = [0.0, 1.0]
 
 class LagrangeP2TriangleElement(P2TriangleElement):
-    """ Triangular element with Lagrange P2 basis for the trial and test spaces.
+    """ Triangular element with Lagrange P2 basis for the trial/test space.
+    NOTE: The 2 functions below need to be checked - ie,
+    what is B(T(x)), where T is the geometric map and x is the reference coordinate?
     """
-    def getBasisFunction(self, idof, x, y):
-        pass
+    def getBasisFunctions(self, x, y, bvals):
+        bvals[0] = 1.0 - 3*x - 3*y - 2*x*x - 2*y*y - 4*x*y
+        bvals[1] = 2.0*x*x - x
+        bvals[2] = 2.0*y*y - y
+        bvals[3] = 4.0*(x - x*x - x*y)
+        bvals[4] = 4.0*x*y
+        bvals[5] = 4.0*(y - y*y - x*y)
+
+    def getBasisGradients(self, x, y, bgrvals):
+        bgrvals[0,:] = [-3.0-4.0*x-4.0*y, -3.0-4.0*x-4.0*y]
+        bgrvals[1,:] = [4.0*x-1.0, 0.0]
+        bgrvals[2,:] = [0.0, 4.0*y-1.0]
+        bgrvals[3,:] = [4.0*(1-2.0*x-y), -4.0*x]
+        bgrvals[4,:] = [4.0*y, 4.0*x]
+        bgrvals[5,:] = [-4.0*y, 4.0*(1.0-2.0*y-x)]
 
 
-@jit(nopython=True, cache=True)
+#@jit(nopython=True, cache=True)
 def coeff_mass(x, y):
     return x + 2.0*y
 
-@jit(nopython=True, cache=True)
+#@jit(nopython=True, cache=True)
 def coeff_stiffness(x, y):
     return x*x + y*y - x*y
 
-@jit(nopython=True, cache=True)
+#@jit(nopython=True, cache=True)
 def localMassMatrix(m, ielem, localmass):
     """ Computes the local mass matrix of element ielem in mesh m.
     The output array localmass needs to be pre-allocated."""
     pass
 
-@jit(nopython=True, cache=True)
+#@jit(nopython=True, cache=True)
 def localStiffnessMatrix(m, ielem, localstif):
     """ Computes the local stiffness matrix of element ielem in mesh m.
     The output array localmass needs to be pre-allocated."""
