@@ -3,9 +3,11 @@
 
 import numpy as np
 import numpy.linalg
-from numba import jit, generated_jit
+from numba import jit, generated_jit, jitclass, int32, float64
 from mesh import *
 from quadrature import GLQuadrature1D, GLQuadrature2DTriangle
+
+spec = [('nnodel', int32), ('refnodes', float64[:,:]), ('phynodes', float64[:,:])]
 
 class Element:
     """ @brief Abstract class for a finite element.
@@ -16,13 +18,10 @@ class Element:
     """
     def __init__(self):
         pass
-    def setPhysicalElementNodes(self, physical_nodes, num_dofs):
+    def setPhysicalElementNodes(self, physical_nodes):
         """ physical_nodes is a nnodel x ndim numpy array describing locations of the physical nodes."""
         self.phynodes = np.copy(pysical_nodes)
-        self.ndofs = num_dofs
     def setReferenceElementNodes(self):
-        pass
-    def getJacobianDet(self, x, y):
         pass
     def getJacobian(self, x, y, jac, jacinv):
         """ The ndim x ndim array jac contains the Jacobian matrix of the geometric mapping on return
@@ -77,6 +76,7 @@ class P2TriangleElement(Element):
         jacinv[1,0] = -jac[1,0]/jdet; jacinv[1,1] = jac[0,0]/jdet
         return jdet
 
+@jitclass(spec)
 class LagrangeP1TriangleElement(P1TriangleElement):
     """ Triangular element with Lagrange P1 basis for the trial/test space.
     """
@@ -88,6 +88,7 @@ class LagrangeP1TriangleElement(P1TriangleElement):
         bgrvals[1,:] = [1.0, 0.0]
         bgrvals[2,:] = [0.0, 1.0]
 
+@jitclass(spec)
 class LagrangeP2TriangleElement(P2TriangleElement):
     """ Triangular element with Lagrange P2 basis for the trial/test space.
     NOTE: The 2 functions below need to be checked - ie,
@@ -108,41 +109,6 @@ class LagrangeP2TriangleElement(P2TriangleElement):
         bgrvals[3,:] = [4.0*(1-2.0*x-y), -4.0*x]
         bgrvals[4,:] = [4.0*y, 4.0*x]
         bgrvals[5,:] = [-4.0*y, 4.0*(1.0-2.0*y-x)]
-
-
-#@jit(nopython=True, cache=True)
-def coeff_mass(x, y, elem):
-    return x + 2.0*y
-
-#@jit(nopython=True, cache=True)
-def coeff_stiffness(x, y):
-    return x*x + y*y - x*y
-
-#@jit(nopython=True, cache=True)
-def localMassMatrix(elem, quadrature, localmass):
-    """ Computes the local mass matrix of element elem.
-	quadrature is the 2D quadrature contect to be used; has to be setup beforehand.
-    The output array localmass needs to be pre-allocated."""
-
-    ndof = localmass.shape[0]
-    localmass[:,:] = 0.0
-    basis = np.zeros(ndof, dtype=np.float64)
-    jac = np.zeros((2,2), dtype=np.float64)
-    jacinv = np.zeros((2,2), dtype=np.float64)
-
-    for ig in range(quadrature.ng):
-        # get quadrature points and weights
-        x = quadrature.gp[ig,0]; y = quadrature.gp[ig,1]
-        w = quadrature.gw[ig]
-
-        # get basis function values and jacobian determinant
-        elem.getBasisFunctions(x,y,basis)
-        jdet = elem.getJacobian(x,y,jac,jacinv)
-
-        # add contribution of this quadrature point to each integral
-        for i in range(ndof):
-            for j in range(ndof):
-                localmass[i,j] += w * basis[i]*basis[j]*jdet
 
 #@jit(nopython=True, cache=True)
 def localStiffnessMatrix(elem, quadrature, localstiff):
@@ -170,14 +136,62 @@ def localStiffnessMatrix(elem, quadrature, localstiff):
             for j in range(ndof):
                 localmass[i,j] += w * np.dot( np.dot(jacinv.T, basisg[i,:]), np.dot(jacinv.T, basisg[j,:]) ) * jdet
 
-def localLoadVector_domain(elem, quadrature, localload):
-    """ Computes the domain integral part of the local load vector.
+#@jit(nopython=True, cache=True)
+def localMassMatrix(elem, quadrature, localmass):
+    """ Computes the local mass matrix of element elem.
+	quadrature is the 2D quadrature contect to be used; has to be setup beforehand.
+    The output array localmass needs to be pre-allocated."""
+
+    ndof = localmass.shape[0]
+    localmass[:,:] = 0.0
+    basis = np.zeros(ndof, dtype=np.float64)
+    jac = np.zeros((2,2), dtype=np.float64)
+    jacinv = np.zeros((2,2), dtype=np.float64)
+
+    for ig in range(quadrature.ng):
+        # get quadrature points and weights
+        x = quadrature.gp[ig,0]; y = quadrature.gp[ig,1]
+        w = quadrature.gw[ig]
+
+        # get basis function values and jacobian determinant
+        elem.getBasisFunctions(x,y,basis)
+        jdet = elem.getJacobian(x,y,jac,jacinv)
+
+        # add contribution of this quadrature point to each integral
+        for i in range(ndof):
+            for j in range(ndof):
+                localmass[i,j] += w * basis[i]*basis[j]*jdet
+
+def localLoadVector_domain(f, elem, quadrature, localload):
+    """ Computes the domain integral part of the local load vector. f is a scalar function of two variables.
     localload must be pre-allocated.
+    """
+
+    ndof = localload.shape[0]
+    localload[:,:] = 0.0
+    basis = np.zeros(ndof, dtype=np.float64)
+    jac = np.zeros((2,2), dtype=np.float64)
+    jacinv = np.zeros((2,2), dtype=np.float64)
+
+    for ig in range(quadrature.ng):
+        # get quadrature points and weights
+        x = quadrature.gp[ig,0]; y = quadrature.gp[ig,1]
+        w = quadrature.gw[ig]
+
+        # get basis gradients and jacobian determinant
+        elem.getBasisFunctions(x,y,basis)
+        jdet = elem.getJacobian(x,y,jac,jacinv)
+
+        # add contribution of this quadrature point to each integral
+        for i in range(ndof):
+            localload[i,j] += w * f(x,y)*basis[i] * jdet
+
+def localLoadVector_boundary(g, face, quadrature, localload):
+    """ Computes the local boundary integral part of load vector for Neumann BCs.
+    localload must be allocated before passing to this.
+    g is a scalar function of two variables describing the Neumann BC.
     """
     pass
 
-def localLoadVector_boundary(face, quadrature, localload):
-    """ Computes the local boundary integral part of load vector for Neumann BCs.
-    localload must be allocated before passing to this.
-    """
-    pass
+if __name__ == "__main__":
+    elem = LagrangeP1TriangleElement()
