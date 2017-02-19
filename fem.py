@@ -68,7 +68,7 @@ class P2TriangleElement(Element):
             refnodes[5,:] = (refnodes[2,:]+refnodes[0,:])*0.5
         else:
             print("! P2TriangleElement: Element with " + str(self.nnodel) + " nodes not available!")
-    
+
     def getJacobian(self, x, y, jac, jacinv):
         jac[:,0] = self.phynodes[0,:]*(-3-4*x-4*y) +self.phynodes[1,:]*(4*x-1) +self.phynodes[3,:]*4*(1-2*x-y) +self.phynodes[4,:]*4*y -self.phynodes[5,:]*y
         jac[:,1] = self.phynodes[0,:]*(-3-4*y-4*x) +self.phynodes[2,:]*(4*y-1) -self.phynodes[3,:]*4*x +self.phynodes[4,:]*4*x +self.phynodes[5,:]*4*(1-2*y-x)
@@ -111,7 +111,7 @@ class LagrangeP2TriangleElement(P2TriangleElement):
 
 
 #@jit(nopython=True, cache=True)
-def coeff_mass(x, y):
+def coeff_mass(x, y, elem):
     return x + 2.0*y
 
 #@jit(nopython=True, cache=True)
@@ -119,24 +119,64 @@ def coeff_stiffness(x, y):
     return x*x + y*y - x*y
 
 #@jit(nopython=True, cache=True)
-def localMassMatrix(m, ielem, localmass):
-    """ Computes the local mass matrix of element ielem in mesh m.
+def localMassMatrix(elem, quadrature, localmass):
+    """ Computes the local mass matrix of element elem.
+	quadrature is the 2D quadrature contect to be used; has to be setup beforehand.
     The output array localmass needs to be pre-allocated."""
-    pass
+
+    ndof = localmass.shape[0]
+    localmass[:,:] = 0.0
+    basis = np.zeros(ndof, dtype=np.float64)
+    jac = np.zeros((2,2), dtype=np.float64)
+    jacinv = np.zeros((2,2), dtype=np.float64)
+
+    for ig in range(quadrature.ng):
+        # get quadrature points and weights
+        x = quadrature.gp[ig,0]; y = quadrature.gp[ig,1]
+        w = quadrature.gw[ig]
+
+        # get basis function values and jacobian determinant
+        elem.getBasisFunctions(x,y,basis)
+        jdet = elem.getJacobian(x,y,jac,jacinv)
+
+        # add contribution of this quadrature point to each integral
+        for i in range(ndof):
+            for j in range(ndof):
+                localmass[i,j] += w * basis[i]*basis[j]*jdet
 
 #@jit(nopython=True, cache=True)
-def localStiffnessMatrix(m, ielem, localstif):
-    """ Computes the local stiffness matrix of element ielem in mesh m.
-    The output array localmass needs to be pre-allocated."""
-    pass
+def localStiffnessMatrix(elem, quadrature, localstiff):
+    """ Computes the local stiffness matrix (of size ndofpvarel x ndofpvarel) of element elem.
+	ndofpvarel = number of DOFs per variable per element.
+    The output array localstiff needs to be pre-allocated with correct dimensions."""
 
-def localLoadVector_domain(m, ielem, localload):
+    ndof = localstiff.shape[0]
+    localstiff[:,:] = 0.0
+    basisg = np.zeros((ndof,2), dtype=np.float64)
+    jac = np.zeros((2,2), dtype=np.float64)
+    jacinv = np.zeros((2,2), dtype=np.float64)
+
+    for ig in range(quadrature.ng):
+        # get quadrature points and weights
+        x = quadrature.gp[ig,0]; y = quadrature.gp[ig,1]
+        w = quadrature.gw[ig]
+
+        # get basis gradients and jacobian determinant
+        elem.getBasisGradients(x,y,basisg)
+        jdet = elem.getJacobian(x,y,jac,jacinv)
+
+        # add contribution of this quadrature point to each integral
+        for i in range(ndof):
+            for j in range(ndof):
+                localmass[i,j] += w * np.dot( np.dot(jacinv.T, basisg[i,:]), np.dot(jacinv.T, basisg[j,:]) ) * jdet
+
+def localLoadVector_domain(elem, quadrature, localload):
     """ Computes the domain integral part of the local load vector.
     localload must be pre-allocated.
     """
     pass
 
-def localLoadVector_boundary(m, iface, localload):
+def localLoadVector_boundary(face, quadrature, localload):
     """ Computes the local boundary integral part of load vector for Neumann BCs.
     localload must be allocated before passing to this.
     """
