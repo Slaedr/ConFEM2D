@@ -3,8 +3,12 @@
 
 import gc
 import numpy as np
-from numba import jit
+from numba import jit, int32, float64
 
+meshclassspec = [('nbtags',int32),('ndtags',int32), ('npoin', int32), ('nelem',int32), ('nbface',int32), ('maxnnodel',int32), ('nnodel',int32[:]), ('nnofa',int32[:]),
+        ('coords', float64[:,:]), ('inpoel', float64[:,:]), ('dtags',float64[:,:]), ('bface',float64[:,:]), ('dtag',float64[:,:]) ]
+
+@jitclass(meshclassspec)
 class Mesh2d:
     """ @brief Handles the mesh data.
 
@@ -22,6 +26,8 @@ class Mesh2d:
     - dtags: array containing domain marker tags
     - bface: array containing vertex numbers of vertices in each boundary face, as well as two boundary markers per boundary face
     - dtag: array containing domain markers for each element
+
+    Note that BCs are handled later with the help of the tags stored in bface, which are read from the Gmsh file.
     """
     nbtags = 2
     ndtags = 2
@@ -40,7 +46,7 @@ class Mesh2d:
         print("Mesh2d: readGmsh(): Num points = " + str(self.npoin))
         temp = np.fromfile(f, dtype=float, count=self.npoin*4, sep=" ").reshape((self.npoin,4))
         self.coords = temp[:,1:-1]
-        print("Mesh2d: readGmsh(): Coords read.")
+        print("Mesh2d: readGmsh(): Coords read. Shape of coords is "+str(self.coords.shape))
 
         for i in range(2):
             f.readline()
@@ -112,9 +118,7 @@ class Mesh2d:
         if ielem != self.nelem or iface != self.nbface:
             print("Mesh2d: readGmsh(): ! Error in adding up!")
 
-        gc.collect()
 
-# test
 if __name__ == "__main__":
     fname = "try.msh"
     m = Mesh2d()
