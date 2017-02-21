@@ -22,6 +22,10 @@ class Element:
         self.phynodes = np.copy(pysical_nodes)
     def setReferenceElementNodes(self):
         pass
+    def evalGeomMapping(self,x,y):
+        """ Returns the physical coordinates of reference location (x,y) in the reference element.
+        """
+        pass
     def getJacobian(self, x, y, jac, jacinv):
         """ The ndim x ndim array jac contains the Jacobian matrix of the geometric mapping on return
         and jacinv contains its inverse.
@@ -48,6 +52,11 @@ class P1TriangleElement(Element):
         else:
             print("! P1TriangleElement: Element with " + str(self.nnodel) + " nodes not available!")
 
+    def evalGeomMapping(self,x,y):
+        rg = np.array(2)
+        rg[:] = self.phynodes[0,:]*(1.0-x-y) + self.phynodes[1,:]*x + self.phynodes[2,:]*y
+        return (rg[0],rg[1])
+
     def getJacobian(self, x, y, jac, jacinv):
         jac[:,0] = self.phynodes[1,:]-self.phynodes[0,:]
         jac[:,1] = self.phynodes[2,:]-self.phynodes[0,:]
@@ -66,6 +75,12 @@ class P2TriangleElement(Element):
             refnodes[5,:] = (refnodes[2,:]+refnodes[0,:])*0.5
         else:
             print("! P2TriangleElement: Element with " + str(self.nnodel) + " nodes not available!")
+
+    def evalGeomMapping(self,x,y):
+        rg = np.array(2)
+        rg[:] = self.phynodes[0,:]*(1.0-3*x-3*y-2*x*x-2*y*y-4*x*y) + self.phynodes[1,:]*(2.0*x*x-x) + self.phynodes[2,:]*(2.0*y*y-y) + \
+                self.phynodes[3,:]*4.0*(x-x*x-x*y) + self.phynodes[4,:]*4.0*x*y + self.phynodes[5,:]*4.0*(y-y*y-x*y)
+        return (rg[0],rg[1])
 
     def getJacobian(self, x, y, jac, jacinv):
         jac[:,0] = self.phynodes[0,:]*(-3-4*x-4*y) +self.phynodes[1,:]*(4*x-1) +self.phynodes[3,:]*4*(1-2*x-y) +self.phynodes[4,:]*4*y -self.phynodes[5,:]*y

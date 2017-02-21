@@ -2,6 +2,7 @@
 """
 
 import numpy as np
+from numpy.linalg import solve
 from numba import jit, generated_jit, jitclass, int32, float64
 from mesh import *
 from quadrature import GLQuadrature1D, GLQuadrature2DTriangle
@@ -14,11 +15,11 @@ def rhs_func(x,y):
 
 @jit(nopython=True)
 def stiffness_coeff_func(x,y):
-    pass
+    return 1.0
 
 @jit(nopython=True)
 def mass_coeff_func(x,y):
-    pass
+    return 1.0
 
 @jit(nopython=True)
 def exact_sol(x,y):
@@ -26,7 +27,7 @@ def exact_sol(x,y):
 
 @jit(nopython=True)
 def dirichlet_value(x,y):
-    pass
+    return 0.0
 
 #@jit(nopython=True, cache=True)
 def localStiffnessMatrix(elem, quadrature, localstiff):
@@ -49,10 +50,13 @@ def localStiffnessMatrix(elem, quadrature, localstiff):
         elem.getBasisGradients(x,y,basisg)
         jdet = elem.getJacobian(x,y,jac,jacinv)
 
+        # physical location of quadrature point for coefficient function evaluation
+        gx,gy = elem.evalGeomMapping(x,y)
+
         # add contribution of this quadrature point to each integral
         for i in range(ndof):
             for j in range(ndof):
-                localmass[i,j] += w * np.dot( np.dot(jacinv.T, basisg[i,:]), np.dot(jacinv.T, basisg[j,:]) ) * jdet
+                localmass[i,j] += w * stiffness_coeff_func(gx,gy) * np.dot( np.dot(jacinv.T, basisg[i,:]), np.dot(jacinv.T, basisg[j,:]) ) * jdet
 
 #@jit(nopython=True, cache=True)
 def localMassMatrix(elem, quadrature, localmass):
@@ -74,11 +78,14 @@ def localMassMatrix(elem, quadrature, localmass):
         # get basis function values and jacobian determinant
         elem.getBasisFunctions(x,y,basis)
         jdet = elem.getJacobian(x,y,jac,jacinv)
+        
+        # physical location of quadrature point for coefficient function evaluation
+        gx,gy = elem.evalGeomMapping(x,y)
 
         # add contribution of this quadrature point to each integral
         for i in range(ndof):
             for j in range(ndof):
-                localmass[i,j] += w * basis[i]*basis[j]*jdet
+                localmass[i,j] += w * mass_coeff_func(gx,gy) * basis[i]*basis[j]*jdet
 
 #@jit(nopython=True, cache=True)
 def localLoadVector_domain(elem, quadrature, localload):
@@ -101,9 +108,12 @@ def localLoadVector_domain(elem, quadrature, localload):
         elem.getBasisFunctions(x,y,basis)
         jdet = elem.getJacobian(x,y,jac,jacinv)
 
+        # physical location of quadrature point for coefficient function evaluation
+        gx,gy = elem.evalGeomMapping(x,y)
+
         # add contribution of this quadrature point to each integral
         for i in range(ndof):
-            localload[i] += w * rhs_func(x,y)*basis[i] * jdet
+            localload[i] += w * rhs_func(gx,gy)*basis[i] * jdet
 
 def localLoadVector_boundary(face, quadrature, localload):
     """ Computes the local boundary integral part of load vector for Neumann BCs.
@@ -170,6 +180,7 @@ def assemble(m, dirBCnum):
     inocc = 0
     for ipoin in range(m.npoin):
         if(dirflag[ipoin] != 1):
+            bd[inocc] = b[ipoin]
             jnocc = 0
             for jpoin in range(m.npoin):
                 if dirflag[jpoin] != 1:
@@ -179,7 +190,8 @@ def assemble(m, dirBCnum):
                     bd[inocc] -= ( A[ipoin,jpoin] * dirichlet_function(m.coords[jpoin,0],m.coords[jpoin,1]) )
             inocc += 1
 
-    return (Ad,bd,dirflag)
+    #return (Ad,bd,dirflag)
+    ud = solve(Ad,bd)
 
 
 if __name__ == "__main__":
