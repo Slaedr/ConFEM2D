@@ -6,7 +6,7 @@ import numpy as np
 from numba import jit, jitclass, int64, int32, float64
 
 meshclassspec = [('nbtags',int64),('ndtags',int64), ('npoin', int64), ('nelem',int64), ('nbface',int64), ('maxnnodel',int64), ('nnodel',int32[:]), ('nnofa',int32[:]),
-        ('coords', float64[:,:]), ('inpoel', int32[:,:]), ('bface',int32[:,:]), ('dtags',int32[:,:]) ]
+        ('coords', float64[:,:]), ('inpoel', int32[:,:]), ('bface',int32[:,:]), ('dtags',int32[:,:]), ('h',float64) ]
 
 @jitclass(meshclassspec)
 class Mesh2d:
@@ -47,6 +47,18 @@ class Mesh2d:
         self.nnodel[:] = _nnodel[:]
         self.nnofa[:] = _nnofa[:]
         self.dtags[:,:] = _dtags[:,:]
+
+        # compute mesh size parameter h 
+        # length of longest edge in the mesh - reasonable for triangular elements
+        self.h = 0.0
+        for ielem in range(self.nelem):
+            localh = 0.0
+            for iface in range(self.nnofa[ielem]):
+                facevec = m.coords[m.inpoel[ielem, (iface+1) % self.nnofa[ielem]],:] - m.coords[m.inpoel[ielem,iface],:]
+                faceh = np.sqrt(facevec[0]*facevec[0]+facevec[1]*facevec[1])
+                if self.h < faceh:
+                    self.h = faceh
+
 
 class Mesh2dIO:
     """ @brief Reads and processes the mesh data.

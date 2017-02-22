@@ -2,32 +2,31 @@
 """
 
 import numpy as np
-from numpy.linalg import solve
-from numba import jit, generated_jit, jitclass, int32, float64
+from numpy import sin, cos
+from numba import jit, jitclass, int32, float64
 from mesh import *
 from quadrature import GLQuadrature1D, GLQuadrature2DTriangle
 from elements import *
 
-# function prescribing the known RHS f
 @jit(nopython=True)
 def rhs_func(x,y):
-    pass
+    return -cos(y)*cos(x+y) + x*sin(x+2*y) + (x*x + y*y)*x*cos(y)
 
 @jit(nopython=True)
 def stiffness_coeff_func(x,y):
-    return 1.0
+    return sin(x+y)
 
 @jit(nopython=True)
 def mass_coeff_func(x,y):
-    return 1.0
+    return x*x + y*y
 
 @jit(nopython=True)
 def exact_sol(x,y):
-    pass
+    return x*cos(y)
 
 @jit(nopython=True)
 def dirichlet_value(x,y):
-    return 0.0
+    return exact_sol(x,y)
 
 #@jit(nopython=True, cache=True)
 def localStiffnessMatrix(elem, quadrature, localstiff):
