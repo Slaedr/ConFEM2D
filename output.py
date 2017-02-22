@@ -3,7 +3,7 @@
 """
 
 import numpy as np
-from mesh import Mesh2d, Mesh2dIO
+from mesh import Mesh2d
 
 def writePointScalarToVTU(m, filename, scalarname, x):
     """ Writes one scalar mesh function into a VTU file.
@@ -55,9 +55,3 @@ def writePointScalarToVTU(m, filename, scalarname, x):
     fout.close()
     print("WritePointScalarToVTU: File written.")
 
-if __name__ == "__main__":
-    mio = Mesh2dIO()
-    mio.readGmsh("try.msh")
-    m = Mesh2d(mio.npoin, mio.nelem, mio.nbface, mio.maxnnodel, mio.nbtags, mio.ndtags, mio.coords, mio.inpoel, mio.bface, mio.nnodel, mio.nnofa, mio.dtags)
-    x = np.arange(m.npoin)
-    writePointScalarToVTU(m,"tryvis.vtu", "something", x)

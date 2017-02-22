@@ -278,8 +278,37 @@ def solveAndProcess(m, A, b):
 
     x = solve(A,b)
 
+#@jit(nopython=True, cache=True)
+def compute_norm(m, v):
+    """ Compute the L2 and H1 norms of the FE function v
+    Note: it is currently assumed that all elements are topologically identical and use the same basis functions.
+    """
+    # For a Lagrange element, the number of DOFs per element is the same as the number of nodes per element
 
-if __name__ == "__main__":
-    m = Mesh2d()
-    m.readGmsh("try.msh")
-    dirBCflag = 2
+    if(m.nnodel == 6):
+        elem = LagrangeP2TriangleElement()
+        ngauss = 6
+    elif(m.nnodel == 3):
+        elem = LagrangeP1TriangleElement()
+        ngauss = 3
+    integ2d = Quadrature2DTriangle(ngauss)
+
+    l2norm = 0; h1norm = 0
+
+    # iterate over the elements and add contributions
+    for ielem in range(m.nelem):
+        # setup required local arrays
+        phynodes = np.zeros((m.nnodel[ielem], 2))
+
+        # set element
+        phynodes[:,:] = m.coords[m.inpoel[ielem,:],:]
+        elem.setPhysicalElementNodes(phynodes)
+        uvals = v[m.inpoel[ielem,:]]
+
+        # compute and add contribution of this element
+        l2normlocal = localL2Norm2(elem, integ2d, uvals)
+        l2norm += l2normlocal; h1norm += l2normlocal
+        h1norm += localH1Seminorm2(elem, integ2d, uvals)
+
+    return (np.sqrt(l2norm), np.sqrt(h1norm))
+
