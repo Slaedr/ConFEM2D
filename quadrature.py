@@ -20,7 +20,7 @@ class Quadrature:
             sum1 += self.gw[i]*fvals[i]
         return sum1
 
-@jitclass(spec)
+#@jitclass(spec)
 class GLQuadrature1D(Quadrature):
     def __init__(self, ngauss):
         self.ng = ngauss
@@ -96,6 +96,7 @@ class GLQuadrature2DTriangle(Quadrature):
                        0.0414255378091870]
         else:
             print("! GLQuadrature2DTriangle: Quadrature with this number of Gauss points is not supported!")
+        print("GLQuadrature2DTriangle: object setup done.")
 
 if __name__ == "__main__":
     N = 100000

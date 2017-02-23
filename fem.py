@@ -2,31 +2,52 @@
 """
 
 import numpy as np
-from numpy import sin, cos
+from numpy import sin, cos, arctan
 from numba import jit, jitclass, int32, float64
 from mesh import *
 from quadrature import GLQuadrature1D, GLQuadrature2DTriangle
 from elements import *
 
-@jit(nopython=True)
+
+#@jit(nopython=True)
 def rhs_func(x,y):
     return -cos(y)*cos(x+y) + x*sin(x+2*y) + (x*x + y*y)*x*cos(y)
 
-@jit(nopython=True)
+#@jit(nopython=True)
 def stiffness_coeff_func(x,y):
     return sin(x+y)
 
-@jit(nopython=True)
+#@jit(nopython=True)
 def mass_coeff_func(x,y):
     return x*x + y*y
 
-@jit(nopython=True)
+#@jit(nopython=True)
 def exact_sol(x,y):
     return x*cos(y)
 
-@jit(nopython=True)
-def dirichlet_value(x,y):
+#@jit(nopython=True)
+def dirichlet_function(x,y):
     return exact_sol(x,y)
+
+"""
+def rhs_func(x,y):
+    return exact_sol(x,y)*20/3.0
+
+def stiffness_coeff_func(x,y):
+    return 1.0
+
+def mass_coeff_func(x,y):
+    return 0.0
+
+def exact_sol(x,y):
+    #x[np.where(np.abs(x)<1e-14)] = x[np.where(np.abs(x)<1e-14)]+1e-12
+    #x[np.where(np.abs(x)<1e-14)] += 1e-12
+    x += 1e-13
+    return (1.0-x*x-y*y)*(x*x+y*y)**(1.0/3) * sin(2.0/3*(arctan(y/x)+np.pi/2.0))
+
+def dirichlet_function(x,y):
+    return 0.0
+"""
 
 #@jit(nopython=True, cache=True)
 def localStiffnessMatrix(elem, quadrature, localstiff):
@@ -55,7 +76,8 @@ def localStiffnessMatrix(elem, quadrature, localstiff):
         # add contribution of this quadrature point to each integral
         for i in range(ndof):
             for j in range(ndof):
-                localmass[i,j] += w * stiffness_coeff_func(gx,gy) * np.dot( np.matmul(jacinv.T, basisg[i,:]), np.matmul(jacinv.T, basisg[j,:]) ) * jdet
+                localstiff[i,j] += w * stiffness_coeff_func(gx,gy) * np.dot( np.dot(jacinv.T, basisg[i,:]), np.dot(jacinv.T, basisg[j,:]) ) * jdet
+        
 
 #@jit(nopython=True, cache=True)
 def localH1Seminorm2(elem, quadrature, uvals):
@@ -191,13 +213,15 @@ def assemble(m, dirBCnum, A, b):
     """
     # For a Lagrange element, the number of DOFs per element is the same as the number of nodes per element
 
-    if(m.nnodel == 6):
+    if(m.nnodel[0] == 6):
         elem = LagrangeP2TriangleElement()
-        ngauss = 6
-    elif(m.nnodel == 3):
+        ngauss = 3
+    elif(m.nnodel[0] == 3):
         elem = LagrangeP1TriangleElement()
         ngauss = 3
-    integ2d = Quadrature2DTriangle(ngauss)
+    integ2d = GLQuadrature2DTriangle(ngauss)
+
+    print("assemble(): Beginning assembly loop over elements.")
 
     # iterate over the elements and add contributions
     for ielem in range(m.nelem):
@@ -208,7 +232,7 @@ def assemble(m, dirBCnum, A, b):
         phynodes = np.zeros((m.nnodel[ielem], 2))
 
         # set element
-        phynodes[:,:] = m.coords[m.inpoel[ielem,:],:]
+        phynodes[:,:] = m.coords[m.inpoel[ielem,:m.nnodel[ielem]],:]
         elem.setPhysicalElementNodes(phynodes)
 
         # get local matrices
@@ -217,8 +241,10 @@ def assemble(m, dirBCnum, A, b):
         localMassMatrix(elem, integ2d, localmass)
 
         # add contributions to global
-        A[m.inpoel[ielem,:], m.inpoel[ielem,:]] += localstiff[:,:] + localmass[:,:]
-        b[m.inpoel[ielem,:]] += localload[:]
+        b[m.inpoel[ielem,:m.nnodel[ielem]]] += localload[:]
+        for i in range(m.nnodel[ielem]):
+            for j in range(m.nnodel[ielem]):
+                A[m.inpoel[ielem,i], m.inpoel[ielem,j]] += localstiff[i,j] + localmass[i,j]
 
     # penalty for Dirichlet rows and columns
     """ For the row of each node corresponding to a Dirichlet boundary, multiply the diagonal entry by a huge number cbig,
@@ -228,16 +254,22 @@ def assemble(m, dirBCnum, A, b):
     """
 
     cbig = 1.0e30
-    for iface in range(m.nbface):
-        if m.bface[iface,m.nnofa[iface]] == dirBCnum:
-            for inode in range(m.nnofa[iface]):
-                node = m.bface[iface,inode]
-                A[node,node] *= cbig
-                b[node] = cbig*dirichlet_function(m.coords[node,0], m.coords[node,1])
+    dirflags = np.zeros(m.npoin,dtype=np.int32)
 
-    return (A,b)
-    
-def removeDirichletRowsAndColumns(m,A,b):
+    for iface in range(m.nbface):
+        for inum in range(len(dirBCnum)):
+            if m.bface[iface,m.nnofa[iface]] == dirBCnum[inum]:
+                for inode in range(m.nnofa[iface]):
+                    dirflags[m.bface[iface,inode]] = 1
+
+    for ipoin in range(m.npoin):
+        if dirflags[ipoin] == 1:
+            #print("   applying Dirichlet BC to node " + str(ipoin))
+            A[ipoin,ipoin] *= cbig
+            b[ipoin] = A[ipoin,ipoin]*dirichlet_function(m.coords[ipoin,0], m.coords[ipoin,1])
+
+ 
+def removeDirichletRowsAndColumns(m,A,b,dirBCnum):
     """ Alternatively, rather than use a penalty method, we can eliminate Dirichlet rows and columns.
     """
     
@@ -246,11 +278,12 @@ def removeDirichletRowsAndColumns(m,A,b):
     dirflag = np.zeros(m.npoin,dtype=np.int32)
 
     for iface in range(m.nbface):
-        if(m.bface[iface,m.nnofa[iface]] == dirBCnum):
-            
-            # if this face is a Dirichlet face, mark its nodes
-            for ibnode in range(m.nnofa[iface]):
-                dirflag[m.bface[iface,ibnode]] = 1
+        for inum in range(len(dirBCnum)):
+            if(m.bface[iface,m.nnofa[iface]] == dirBCnum[inum]):
+                
+                # if this face is a Dirichlet face, mark its nodes
+                for ibnode in range(m.nnofa[iface]):
+                    dirflag[m.bface[iface,ibnode]] = 1
 
     for ipoin in range(m.npoin):
         ntotvars -= dirflag[ipoin]
@@ -273,7 +306,7 @@ def removeDirichletRowsAndColumns(m,A,b):
 
     return (Ad,bd,dirflag)
 
-def solveAndProcess(m, A, b):
+def solveAndProcess(m, A, b, dirflag):
 
     x = solve(A,b)
 
@@ -284,15 +317,16 @@ def compute_norm(m, v):
     """
     # For a Lagrange element, the number of DOFs per element is the same as the number of nodes per element
 
-    if(m.nnodel == 6):
+    if(m.nnodel[0] == 6):
         elem = LagrangeP2TriangleElement()
-        ngauss = 6
-    elif(m.nnodel == 3):
+        ngauss = 3
+    elif(m.nnodel[0] == 3):
         elem = LagrangeP1TriangleElement()
         ngauss = 3
-    integ2d = Quadrature2DTriangle(ngauss)
+    integ2d = GLQuadrature2DTriangle(ngauss)
 
     l2norm = 0; h1norm = 0
+    print("compute_norm(): Computing norms...")
 
     # iterate over the elements and add contributions
     for ielem in range(m.nelem):
@@ -300,9 +334,9 @@ def compute_norm(m, v):
         phynodes = np.zeros((m.nnodel[ielem], 2))
 
         # set element
-        phynodes[:,:] = m.coords[m.inpoel[ielem,:],:]
+        phynodes[:,:] = m.coords[m.inpoel[ielem,:m.nnodel[ielem]],:]
         elem.setPhysicalElementNodes(phynodes)
-        uvals = v[m.inpoel[ielem,:]]
+        uvals = v[m.inpoel[ielem,:m.nnodel[ielem]]]
 
         # compute and add contribution of this element
         l2normlocal = localL2Norm2(elem, integ2d, uvals)

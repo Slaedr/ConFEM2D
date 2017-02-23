@@ -5,10 +5,10 @@ import gc
 import numpy as np
 from numba import jit, jitclass, int64, int32, float64
 
-meshclassspec = [('nbtags',int64),('ndtags',int64), ('npoin', int64), ('nelem',int64), ('nbface',int64), ('maxnnodel',int64), ('nnodel',int32[:]), ('nnofa',int32[:]),
+meshclassspec = [('nbtags',int64),('ndtags',int64), ('npoin', int64), ('nelem',int64), ('nbface',int64), ('maxnnodel',int64), ('nnodel',int32[:]), ('nnofa',int32[:]), ('nfael', int32[:]),
         ('coords', float64[:,:]), ('inpoel', int32[:,:]), ('bface',int32[:,:]), ('dtags',int32[:,:]), ('h',float64) ]
 
-@jitclass(meshclassspec)
+#@jitclass(meshclassspec)
 class Mesh2d:
     """ @brief Stores the mesh data.
 
@@ -28,23 +28,26 @@ class Mesh2d:
 
     Note that BCs are handled later with the help of the tags stored in bface, which are read from the Gmsh file.
     """
-    def __init__(self, npo, ne, nf, maxnp, nbt, ndt, _coords, _inpoel, _bface, _nnodel, _nnofa, _dtags):
+    def __init__(self, npo, ne, nf, maxnp, maxnf, nbt, ndt, _coords, _inpoel, _bface, _nnodel, _nfael, _nnofa, _dtags):
         self.npoin = npo
         self.nelem = ne
         self.nbface = nf
         self.maxnnodel = maxnp
+        self.maxnnofa = maxnf
         self.nbtags = nbt
         self.ndtags = ndt
         self.coords = np.zeros((self.npoin,2),dtype=np.float64)
         self.inpoel = np.zeros((self.nelem,self.maxnnodel),dtype=np.int32)
-        self.bface = np.zeros((self.nbface,2+self.nbtags),dtype=np.int32)
+        self.bface = np.zeros((self.nbface,self.maxnnofa+self.nbtags),dtype=np.int32)
         self.nnofa = np.zeros(self.nbface, dtype=np.int32)
         self.nnodel = np.zeros(self.nelem,dtype=np.int32)
+        self.nfael = np.zeros(self.nelem,dtype=np.int32)
         self.dtags = np.zeros((self.nelem,2),dtype=np.int32)
         self.coords[:,:] = _coords[:,:]
         self.inpoel[:,:] = _inpoel[:,:]
         self.bface[:,:] = _bface[:,:]
         self.nnodel[:] = _nnodel[:]
+        self.nfael[:] = _nfael[:]
         self.nnofa[:] = _nnofa[:]
         self.dtags[:,:] = _dtags[:,:]
 
@@ -53,11 +56,13 @@ class Mesh2d:
         self.h = 0.0
         for ielem in range(self.nelem):
             localh = 0.0
-            for iface in range(self.nnofa[ielem]):
-                facevec = m.coords[m.inpoel[ielem, (iface+1) % self.nnofa[ielem]],:] - m.coords[m.inpoel[ielem,iface],:]
+            for iface in range(self.nfael[ielem]):
+                facevec = self.coords[self.inpoel[ielem, (iface+1) % self.nfael[ielem]],:] - self.coords[self.inpoel[ielem,iface],:]
                 faceh = np.sqrt(facevec[0]*facevec[0]+facevec[1]*facevec[1])
                 if self.h < faceh:
                     self.h = faceh
+        
+        #print("Mesh2d: Stored mesh data. nelem = "+str(self.nelem)+", npoin = "+str(self.npoin)+", nbface = "+str(self.nbface))
 
 
 class Mesh2dIO:
@@ -83,7 +88,8 @@ class Mesh2dIO:
         self.npoin = 0
         self.nelem = 0
         self.nbface = 0
-        self.maxnnodel = 4
+        self.maxnnodel = 6
+        self.maxnnofa = 3
         self.nbtags = 2
         self.ndtags = 2
         """self.coords = np.zeros((2,2),dtype=np.float64)
@@ -126,11 +132,14 @@ class Mesh2dIO:
                 allelems[i,j] = elem[j]
         f.close()
 
-        self.bface = np.zeros((self.nbface,2+self.nbtags),dtype=int)
+        print("readGmsh(): All elements read.")
+
+        self.bface = np.zeros((self.nbface, self.maxnnofa+self.nbtags),dtype=int)
         self.inpoel = np.zeros((self.nelem, self.maxnnodel), dtype=int)
         self.dtags = np.zeros((self.nelem,self.ndtags), dtype=int)
         self.nnodel = np.zeros(self.nelem,dtype=int)
-        self.nnofa = np.zeros(self.nbface,dtype=int)
+        self.nfael = np.zeros(self.nelem,dtype=np.int32)
+        self.nnofa = np.zeros(self.nbface,dtype=np.int32)
         iface = 0; ielem = 0
 
         for i in range(nallelem):
@@ -149,24 +158,28 @@ class Mesh2dIO:
             elif allelems[i,0] == 2:
                 # P1 tri
                 self.nnodel[ielem] = 3
+                self.nfael[ielem] = 3
                 self.inpoel[ielem, :self.nnodel[ielem]] = allelems[i, 2+self.ndtags:2+self.ndtags+self.nnodel[ielem]]-1
                 self.dtags[ielem, :self.ndtags] = allelems[i, 2:2+self.ndtags]
                 ielem += 1
             elif allelems[i,0] == 9:
                 # P2 tri
                 self.nnodel[ielem] = 6
+                self.nfael[ielem] = 3
                 self.inpoel[ielem, :self.nnodel[ielem]] = allelems[i, 2+self.ndtags:2+self.ndtags+self.nnodel[ielem]]-1
                 self.dtags[ielem, :self.ndtags] = allelems[i, 2:2+self.ndtags]
                 ielem += 1
             elif allelems[i,0] == 3:
                 # P1 quad
                 self.nnodel[ielem] = 4
+                self.nfael[ielem] = 4
                 self.inpoel[ielem, :self.nnodel[ielem]] = allelems[i, 2+self.ndtags:2+self.ndtags+self.nnodel[ielem]]-1
                 self.dtags[ielem, :self.ndtags] = allelems[i, 2:2+self.ndtags]
                 ielem += 1
             elif allelems[i,0] == 10:
                 # P2 quad
                 self.nnodel[ielem] = 9
+                self.nfael[ielem] = 4
                 self.inpoel[ielem, :self.nnodel[ielem]] = allelems[i, 2+self.ndtags:2+self.ndtags+self.nnodel[ielem]]-1
                 self.dtags[ielem, :self.ndtags] = allelems[i, 2:2+self.ndtags]
                 ielem += 1
@@ -175,6 +188,7 @@ class Mesh2dIO:
         
         if ielem != self.nelem or iface != self.nbface:
             print("Mesh2d: readGmsh(): ! Error in adding up!")
+        print("readGmsh(): Done reading mesh.")
 
 
 if __name__ == "__main__":

@@ -19,7 +19,8 @@ class Element:
         pass
     def setPhysicalElementNodes(self, physical_nodes):
         """ physical_nodes is a nnodel x ndim numpy array describing locations of the physical nodes."""
-        self.phynodes = np.copy(pysical_nodes)
+        self.phynodes = np.copy(physical_nodes)
+        #self.phynodes = physical_nodes[:,:]
     def setReferenceElementNodes(self):
         pass
     def evalGeomMapping(self,x,y):
@@ -53,7 +54,7 @@ class P1TriangleElement(Element):
             print("! P1TriangleElement: Element with " + str(self.nnodel) + " nodes not available!")
 
     def evalGeomMapping(self,x,y):
-        rg = np.array(2)
+        rg = np.zeros(2)
         rg[:] = self.phynodes[0,:]*(1.0-x-y) + self.phynodes[1,:]*x + self.phynodes[2,:]*y
         return (rg[0],rg[1])
 
@@ -77,7 +78,7 @@ class P2TriangleElement(Element):
             print("! P2TriangleElement: Element with " + str(self.nnodel) + " nodes not available!")
 
     def evalGeomMapping(self,x,y):
-        rg = np.array(2)
+        rg = np.zeros(2)
         rg[:] = self.phynodes[0,:]*(1.0-3*x-3*y-2*x*x-2*y*y-4*x*y) + self.phynodes[1,:]*(2.0*x*x-x) + self.phynodes[2,:]*(2.0*y*y-y) + \
                 self.phynodes[3,:]*4.0*(x-x*x-x*y) + self.phynodes[4,:]*4.0*x*y + self.phynodes[5,:]*4.0*(y-y*y-x*y)
         return (rg[0],rg[1])
@@ -90,10 +91,13 @@ class P2TriangleElement(Element):
         jacinv[1,0] = -jac[1,0]/jdet; jacinv[1,1] = jac[0,0]/jdet
         return jdet
 
-@jitclass(spec)
+#@jitclass(spec)
 class LagrangeP1TriangleElement(P1TriangleElement):
     """ Triangular element with Lagrange P1 basis for the trial/test space.
     """
+    def __init__(self):
+        print("Initialized Lagrange P1 triangle element.")
+
     def getBasisFunctions(self, x, y, bvals):
         bvals[:] = [1.0-x-y, x, y]
 
@@ -102,7 +106,7 @@ class LagrangeP1TriangleElement(P1TriangleElement):
         bgrvals[1,:] = [1.0, 0.0]
         bgrvals[2,:] = [0.0, 1.0]
 
-@jitclass(spec)
+#@jitclass(spec)
 class LagrangeP2TriangleElement(P2TriangleElement):
     """ Triangular element with Lagrange P2 basis for the trial/test space.
     NOTE: The 2 functions below need to be checked - ie,
@@ -126,4 +130,4 @@ class LagrangeP2TriangleElement(P2TriangleElement):
 
 
 if __name__ == "__main__":
-    elem = LagrangeP1TriangleElement()
+    elem = LagrangeP2TriangleElement()
