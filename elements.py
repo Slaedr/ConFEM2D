@@ -34,7 +34,8 @@ class Element:
         """
         pass
     def getBasisFunctions(self, x, y, bvals):
-        """ bvals must be preallocated as ndofs x 1. On return, it contains values of the basis function at (x,y).
+        """ Returns the basis function value on the reference element as a function of reference coordinates.
+        bvals must be preallocated as ndofs x 1. On return, it contains values of the basis function at (x,y).
         """
         pass
     def getBasisGradients(self, x, y, bgrvals):
@@ -79,13 +80,13 @@ class P2TriangleElement(Element):
 
     def evalGeomMapping(self,x,y):
         rg = np.zeros(2)
-        rg[:] = self.phynodes[0,:]*(1.0-3*x-3*y-2*x*x-2*y*y-4*x*y) + self.phynodes[1,:]*(2.0*x*x-x) + self.phynodes[2,:]*(2.0*y*y-y) + \
+        rg[:] = self.phynodes[0,:]*(1.0-3*x-3*y+2*x*x+2*y*y+4*x*y) + self.phynodes[1,:]*(2.0*x*x-x) + self.phynodes[2,:]*(2.0*y*y-y) + \
                 self.phynodes[3,:]*4.0*(x-x*x-x*y) + self.phynodes[4,:]*4.0*x*y + self.phynodes[5,:]*4.0*(y-y*y-x*y)
         return (rg[0],rg[1])
 
     def getJacobian(self, x, y, jac, jacinv):
-        jac[:,0] = self.phynodes[0,:]*(-3-4*x-4*y) +self.phynodes[1,:]*(4*x-1) +self.phynodes[3,:]*4*(1-2*x-y) +self.phynodes[4,:]*4*y -self.phynodes[5,:]*y
-        jac[:,1] = self.phynodes[0,:]*(-3-4*y-4*x) +self.phynodes[2,:]*(4*y-1) -self.phynodes[3,:]*4*x +self.phynodes[4,:]*4*x +self.phynodes[5,:]*4*(1-2*y-x)
+        jac[:,0] = self.phynodes[0,:]*(-3+4*x+4*y) +self.phynodes[1,:]*(4*x-1) +self.phynodes[3,:]*4*(1-2*x-y) +self.phynodes[4,:]*4*y -self.phynodes[5,:]*4.0*y
+        jac[:,1] = self.phynodes[0,:]*(-3+4*y+4*x) +self.phynodes[2,:]*(4*y-1) -self.phynodes[3,:]*4*x +self.phynodes[4,:]*4*x +self.phynodes[5,:]*4*(1-2*y-x)
         jdet = jac[0,0]*jac[1,1] - jac[0,1]*jac[1,0]
         jacinv[0,0] = jac[1,1]/jdet; jacinv[0,1] = -jac[0,1]/jdet
         jacinv[1,0] = -jac[1,0]/jdet; jacinv[1,1] = jac[0,0]/jdet
@@ -112,8 +113,11 @@ class LagrangeP2TriangleElement(P2TriangleElement):
     NOTE: The 2 functions below need to be checked - ie,
     what is B(T(x)), where T is the geometric map and x is the reference coordinate?
     """
+    def __init__(self):
+        print("Initialized Lagrange P2 triangle element.")
+
     def getBasisFunctions(self, x, y, bvals):
-        bvals[0] = 1.0 - 3*x - 3*y - 2*x*x - 2*y*y - 4*x*y
+        bvals[0] = 1.0 - 3*x - 3*y + 2*x*x + 4*x*y + 2*y*y
         bvals[1] = 2.0*x*x - x
         bvals[2] = 2.0*y*y - y
         bvals[3] = 4.0*(x - x*x - x*y)
@@ -121,7 +125,7 @@ class LagrangeP2TriangleElement(P2TriangleElement):
         bvals[5] = 4.0*(y - y*y - x*y)
 
     def getBasisGradients(self, x, y, bgrvals):
-        bgrvals[0,:] = [-3.0-4.0*x-4.0*y, -3.0-4.0*x-4.0*y]
+        bgrvals[0,:] = [-3.0+4.0*x+4.0*y, -3.0+4.0*x+4.0*y]
         bgrvals[1,:] = [4.0*x-1.0, 0.0]
         bgrvals[2,:] = [0.0, 4.0*y-1.0]
         bgrvals[3,:] = [4.0*(1-2.0*x-y), -4.0*x]

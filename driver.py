@@ -8,10 +8,10 @@ from fem import *
 from output import *
 
 # user input
-meshfile = "../Meshes-and-geometries/squareholep2-coarse.msh"
+meshfile = "../Meshes-and-geometries/ellipse-annulus-p2-vcoarse.msh"
 dirBCnum = np.array([2,4])
 #dirBCnum = np.array([12,13])
-outputfile = "../fem2d-results/squareholep2-coarse.vtu"
+outputfile = "../fem2d-results/ellipse-annulus-p2-vcoarse.vtu"
 
 # mesh
 mio = Mesh2dIO()
