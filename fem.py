@@ -2,11 +2,14 @@
 """
 
 import numpy as np
+import numpy.linalg
 from numpy import sin, cos, arctan
 from numba import jit, jitclass, int32, float64
 from mesh import *
 from quadrature import GLQuadrature1D, GLQuadrature2DTriangle
 from elements import *
+
+np.set_printoptions(linewidth=200)
 
 
 #@jit(nopython=True)
@@ -100,7 +103,7 @@ def localH1Seminorm2(elem, quadrature, uvals):
         jdet = elem.getJacobian(x,y,jac,jacinv)
 
         # physical location of quadrature point for coefficient function evaluation
-        gx,gy = elem.evalGeomMapping(x,y)
+        #gx,gy = elem.evalGeomMapping(x,y)
 
         # add contribution of this quadrature point to the integral
         dofsum1 = np.array([0.0,0.0]); dofsum2 = np.array([0.0, 0.0])
@@ -162,7 +165,7 @@ def localL2Norm2(elem, quadrature, uvals):
         jdet = elem.getJacobian(x,y,jac,jacinv)
         
         # physical location of quadrature point for coefficient function evaluation
-        gx,gy = elem.evalGeomMapping(x,y)
+        #gx,gy = elem.evalGeomMapping(x,y)
 
         # add contribution of this quadrature point to the integral
         dofsum = 0
@@ -243,8 +246,10 @@ def assemble(m, dirBCnum, A, b):
         # add contributions to global
         b[m.inpoel[ielem,:m.nnodel[ielem]]] += localload[:]
         for i in range(m.nnodel[ielem]):
+            #b[m.inpoel[ielem,i]] += localload[i]
             for j in range(m.nnodel[ielem]):
                 A[m.inpoel[ielem,i], m.inpoel[ielem,j]] += localstiff[i,j] + localmass[i,j]
+        
 
     # penalty for Dirichlet rows and columns
     """ For the row of each node corresponding to a Dirichlet boundary, multiply the diagonal entry by a huge number cbig,
@@ -253,6 +258,7 @@ def assemble(m, dirBCnum, A, b):
         I don't expect this to cause problems as the diagonal dominance of the matrix is increasing.
     """
 
+    """print("assembly(): Imposing penalties on Dirichlet rows")
     cbig = 1.0e30
     dirflags = np.zeros(m.npoin,dtype=np.int32)
 
@@ -266,13 +272,14 @@ def assemble(m, dirBCnum, A, b):
         if dirflags[ipoin] == 1:
             #print("   applying Dirichlet BC to node " + str(ipoin))
             A[ipoin,ipoin] *= cbig
-            b[ipoin] = A[ipoin,ipoin]*dirichlet_function(m.coords[ipoin,0], m.coords[ipoin,1])
+            b[ipoin] = A[ipoin,ipoin]*dirichlet_function(m.coords[ipoin,0], m.coords[ipoin,1])"""
 
  
 def removeDirichletRowsAndColumns(m,A,b,dirBCnum):
     """ Alternatively, rather than use a penalty method, we can eliminate Dirichlet rows and columns.
     """
     
+    print("Removing Dirichlet rows and columns.")
     # preprocessing to detect Dirichlet nodes; dirflag stores whether a given node is a Dirichlet node
     ntotvars = m.npoin
     dirflag = np.zeros(m.npoin,dtype=np.int32)
@@ -305,7 +312,21 @@ def removeDirichletRowsAndColumns(m,A,b,dirBCnum):
             inocc += 1
 
     return (Ad,bd,dirflag)
-   
+
+def solveAndProcess(m, A, b, dirflag):
+
+    print("solveAndProcess: Solving and getting final solution vector")
+    xd = np.linalg.solve(A,b)
+    x = np.zeros(m.npoin, dtype=np.float64)
+    inocc = 0
+    for ipoin in range(m.npoin):
+        if(dirflag[ipoin] != 1):
+            x[ipoin] = xd[inocc]
+            inocc += 1
+        else:
+            x[ipoin] = dirichlet_function(m.coords[ipoin,0],m.coords[ipoin,1])
+    print("solveAndProcess: Done.")
+    return x
 
 #@jit(nopython=True, cache=True)
 def compute_norm(m, v):
