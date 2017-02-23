@@ -1,6 +1,5 @@
 
 import sys
-import gc
 import numpy as np
 import numpy.linalg
 from mesh import *
@@ -8,17 +7,16 @@ from fem import *
 from output import *
 
 # user input
-meshfile = "../Meshes-and-geometries/ellipse-annulus-p2-vcoarse.msh"
+meshfile = "../Meshes-and-geometries/squarehole-coarse.msh"
 dirBCnum = np.array([2,4])
 #dirBCnum = np.array([12,13])
-outputfile = "../fem2d-results/ellipse-annulus-p2-vcoarse.vtu"
+outputfile = "../fem2d-results/squarehole-coarse.vtu"
 
 # mesh
 mio = Mesh2dIO()
 mio.readGmsh(meshfile)
 m = Mesh2d(mio.npoin, mio.nelem, mio.nbface, mio.maxnnodel, mio.maxnnofa, mio.nbtags, mio.ndtags, mio.coords, mio.inpoel, mio.bface, mio.nnodel, mio.nfael, mio.nnofa, mio.dtags)
 mio = 0
-#gc.collect()
 
 # compute
 A = np.zeros((m.npoin,m.npoin),dtype=np.float64)

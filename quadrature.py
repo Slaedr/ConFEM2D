@@ -98,14 +98,3 @@ class GLQuadrature2DTriangle(Quadrature):
             print("! GLQuadrature2DTriangle: Quadrature with this number of Gauss points is not supported!")
         print("GLQuadrature2DTriangle: object setup done.")
 
-if __name__ == "__main__":
-    N = 100000
-    ng = 4
-    out = np.zeros(N)
-    quad = GLQuadrature1D(ng)
-    #quad = GLQuadrature2DTriangle(ng)
-    for i in range(1,N):
-        func = np.ones(ng)*1.0/np.sqrt(i)
-        out[i] = quad.evaluate(func)
-    print(out[0])
-    print(out[-1])

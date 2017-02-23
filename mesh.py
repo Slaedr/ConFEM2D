@@ -1,7 +1,6 @@
-""" @brief 2D Mesh handling class
+""" @brief 2D Mesh handling
 """
 
-import gc
 import numpy as np
 from numba import jit, jitclass, int64, int32, float64
 
@@ -92,12 +91,6 @@ class Mesh2dIO:
         self.maxnnofa = 3
         self.nbtags = 2
         self.ndtags = 2
-        """self.coords = np.zeros((2,2),dtype=np.float64)
-        self.inpoel = np.zeros((2,2),dtype=np.int32)
-        self.bface = np.zeros((2,2),dtype=np.int32)
-        self.nnofa = np.zeros(2, dtype=np.int32)
-        self.nnodel = np.zeros(2,dtype=np.int32)
-        self.dtags = np.zeros((2,2),dtype=np.int32)"""
 
     def readGmsh(self, fname):
         """ Reads a Gmsh2 mesh file."""
@@ -190,13 +183,3 @@ class Mesh2dIO:
             print("Mesh2d: readGmsh(): ! Error in adding up!")
         print("readGmsh(): Done reading mesh.")
 
-
-if __name__ == "__main__":
-    fname = "try.msh"
-    m = Mesh2d()
-    self.readGmsh(fname)
-    print(m.coords)
-    print("---")
-    print(m.inpoel)
-    print("---")
-    print(m.bface)

@@ -305,10 +305,7 @@ def removeDirichletRowsAndColumns(m,A,b,dirBCnum):
             inocc += 1
 
     return (Ad,bd,dirflag)
-
-def solveAndProcess(m, A, b, dirflag):
-
-    x = solve(A,b)
+   
 
 #@jit(nopython=True, cache=True)
 def compute_norm(m, v):

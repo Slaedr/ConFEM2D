@@ -110,8 +110,8 @@ class LagrangeP1TriangleElement(P1TriangleElement):
 #@jitclass(spec)
 class LagrangeP2TriangleElement(P2TriangleElement):
     """ Triangular element with Lagrange P2 basis for the trial/test space.
-    NOTE: The 2 functions below need to be checked - ie,
-    what is B(T(x)), where T is the geometric map and x is the reference coordinate?
+    NOTE: The 2 functions below need to be checked for curved elements - ie,
+    what is B(T(x)), when T is a non-affine geometric map and x is the reference coordinate?
     """
     def __init__(self):
         print("Initialized Lagrange P2 triangle element.")
