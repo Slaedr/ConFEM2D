@@ -13,7 +13,7 @@ np.set_printoptions(linewidth=200)
 
 
 #@jit(nopython=True)
-def rhs_func(x,y):
+"""def rhs_func(x,y):
     return -cos(y)*cos(x+y) + x*sin(x+2*y) + (x*x + y*y)*x*cos(y)
 
 #@jit(nopython=True)
@@ -30,8 +30,26 @@ def exact_sol(x,y):
 
 #@jit(nopython=True)
 def dirichlet_function(x,y):
-    return exact_sol(x,y)
+    return exact_sol(x,y)"""
 
+def rhs_func(x,y):
+    return x*x + y*y - 14
+
+#@jit(nopython=True)
+def stiffness_coeff_func(x,y):
+    return 1.0
+
+#@jit(nopython=True)
+def mass_coeff_func(x,y):
+    return 1.0
+
+#@jit(nopython=True)
+def exact_sol(x,y):
+    return x*x + y*y - 10.0
+
+#@jit(nopython=True)
+def dirichlet_function(x,y):
+    return exact_sol(x,y)
 """
 def rhs_func(x,y):
     return exact_sol(x,y)*20/3.0
@@ -80,7 +98,7 @@ def localStiffnessMatrix(elem, quadrature, localstiff):
         for i in range(ndof):
             for j in range(ndof):
                 localstiff[i,j] += w * stiffness_coeff_func(gx,gy) * np.dot( np.dot(jacinv.T, basisg[i,:]), np.dot(jacinv.T, basisg[j,:]) ) * jdet
-        
+
 
 #@jit(nopython=True, cache=True)
 def localH1Seminorm2(elem, quadrature, uvals):
@@ -134,7 +152,7 @@ def localMassMatrix(elem, quadrature, localmass):
         # get basis function values and jacobian determinant
         elem.getBasisFunctions(x,y,basis)
         jdet = elem.getJacobian(x,y,jac,jacinv)
-        
+
         # physical location of quadrature point for coefficient function evaluation
         gx,gy = elem.evalGeomMapping(x,y)
 
@@ -163,7 +181,7 @@ def localL2Norm2(elem, quadrature, uvals):
         # get basis function values and jacobian determinant
         elem.getBasisFunctions(x,y,basis)
         jdet = elem.getJacobian(x,y,jac,jacinv)
-        
+
         # physical location of quadrature point for coefficient function evaluation
         #gx,gy = elem.evalGeomMapping(x,y)
 
@@ -210,7 +228,7 @@ def localLoadVector_boundary(face, quadrature, localload):
     pass
 
 #@jit(nopython=True, cache=True)
-def assemble(m, dirBCnum, A, b):
+def assemble(m, dirBCnum, A, b, ngauss):
     """ Assembles a (dense, for now) LHS matrix and RHS vector.
         Applies a penalty method for Dirichlet BCs.
     """
@@ -218,10 +236,9 @@ def assemble(m, dirBCnum, A, b):
 
     if(m.nnodel[0] == 6):
         elem = LagrangeP2TriangleElement()
-        ngauss = 3
     elif(m.nnodel[0] == 3):
         elem = LagrangeP1TriangleElement()
-        ngauss = 3
+
     integ2d = GLQuadrature2DTriangle(ngauss)
 
     print("assemble(): Beginning assembly loop over elements.")
@@ -249,7 +266,7 @@ def assemble(m, dirBCnum, A, b):
             #b[m.inpoel[ielem,i]] += localload[i]
             for j in range(m.nnodel[ielem]):
                 A[m.inpoel[ielem,i], m.inpoel[ielem,j]] += localstiff[i,j] + localmass[i,j]
-        
+
 
     # penalty for Dirichlet rows and columns
     """ For the row of each node corresponding to a Dirichlet boundary, multiply the diagonal entry by a huge number cbig,
@@ -258,7 +275,7 @@ def assemble(m, dirBCnum, A, b):
         I don't expect this to cause problems as the diagonal dominance of the matrix is increasing.
     """
 
-    """print("assembly(): Imposing penalties on Dirichlet rows")
+    print("assembly(): Imposing penalties on Dirichlet rows")
     cbig = 1.0e30
     dirflags = np.zeros(m.npoin,dtype=np.int32)
 
@@ -272,13 +289,13 @@ def assemble(m, dirBCnum, A, b):
         if dirflags[ipoin] == 1:
             #print("   applying Dirichlet BC to node " + str(ipoin))
             A[ipoin,ipoin] *= cbig
-            b[ipoin] = A[ipoin,ipoin]*dirichlet_function(m.coords[ipoin,0], m.coords[ipoin,1])"""
+            b[ipoin] = A[ipoin,ipoin]*dirichlet_function(m.coords[ipoin,0], m.coords[ipoin,1])
 
- 
+
 def removeDirichletRowsAndColumns(m,A,b,dirBCnum):
     """ Alternatively, rather than use a penalty method, we can eliminate Dirichlet rows and columns.
     """
-    
+
     print("Removing Dirichlet rows and columns.")
     # preprocessing to detect Dirichlet nodes; dirflag stores whether a given node is a Dirichlet node
     ntotvars = m.npoin
@@ -287,7 +304,7 @@ def removeDirichletRowsAndColumns(m,A,b,dirBCnum):
     for iface in range(m.nbface):
         for inum in range(len(dirBCnum)):
             if(m.bface[iface,m.nnofa[iface]] == dirBCnum[inum]):
-                
+
                 # if this face is a Dirichlet face, mark its nodes
                 for ibnode in range(m.nnofa[iface]):
                     dirflag[m.bface[iface,ibnode]] = 1
@@ -329,7 +346,7 @@ def solveAndProcess(m, A, b, dirflag):
     return x
 
 #@jit(nopython=True, cache=True)
-def compute_norm(m, v):
+def compute_norm(m, v, ngauss):
     """ Compute the L2 and H1 norms of the FE function v
     Note: it is currently assumed that all elements are topologically identical and use the same basis functions.
     """
@@ -337,10 +354,8 @@ def compute_norm(m, v):
 
     if(m.nnodel[0] == 6):
         elem = LagrangeP2TriangleElement()
-        ngauss = 3
     elif(m.nnodel[0] == 3):
         elem = LagrangeP1TriangleElement()
-        ngauss = 3
     integ2d = GLQuadrature2DTriangle(ngauss)
 
     l2norm = 0; h1norm = 0
@@ -362,4 +377,3 @@ def compute_norm(m, v):
         h1norm += localH1Seminorm2(elem, integ2d, uvals)
 
     return (np.sqrt(l2norm), np.sqrt(h1norm))
-
