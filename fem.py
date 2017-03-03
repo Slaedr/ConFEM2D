@@ -32,8 +32,9 @@ def exact_sol(x,y):
 def dirichlet_function(x,y):
     return exact_sol(x,y)"""
 
+#@jit(nopython=True)
 def rhs_func(x,y):
-    return x*x + y*y - 14
+    return x*x + y*y-14.0
 
 #@jit(nopython=True)
 def stiffness_coeff_func(x,y):
@@ -192,6 +193,38 @@ def localL2Norm2(elem, quadrature, uvals):
         localnorm2 += w * dofsum*dofsum * jdet
     return localnorm2
 
+def localL2Norm2_exactAtQuad(elem, quadrature, uvals):
+    """ Computes the L2 norm squared of the error of FE solution with dofs uvals on element elem.
+    Actual values of the exact solution function are used at the quadrature points.
+	quadrature is the 2D quadrature contect to be used; has to be setup beforehand.
+    """
+
+    ndof = uvals.shape[0]
+    localnorm2 = 0.0
+    basis = np.zeros(ndof, dtype=np.float64)
+    jac = np.zeros((2,2), dtype=np.float64)
+    jacinv = np.zeros((2,2), dtype=np.float64)
+
+    for ig in range(quadrature.ng):
+        # get quadrature points and weights
+        x = quadrature.gp[ig,0]; y = quadrature.gp[ig,1]
+        w = quadrature.gw[ig]
+
+        # get basis function values and jacobian determinant
+        elem.getBasisFunctions(x,y,basis)
+        jdet = elem.getJacobian(x,y,jac,jacinv)
+
+        # physical location of quadrature point for exact function evaluation
+        gx,gy = elem.evalGeomMapping(x,y)
+        uexact = exact_sol(gx,gy)
+
+        # add contribution of this quadrature point to the integral
+        dofsum = 0
+        for i in range(ndof):
+            dofsum += uvals[i] * basis[i]
+        localnorm2 += w * (dofsum-uexact)*(dofsum-uexact) * jdet
+    return localnorm2
+
 #@jit(nopython=True, cache=True)
 def localLoadVector_domain(elem, quadrature, localload):
     """ Computes the domain integral part of the local load vector.
@@ -343,7 +376,7 @@ def solveAndProcess(m, A, b, dirflag):
         else:
             x[ipoin] = dirichlet_function(m.coords[ipoin,0],m.coords[ipoin,1])
     print("solveAndProcess: Done.")
-    return x
+    return x,xd
 
 #@jit(nopython=True, cache=True)
 def compute_norm(m, v, ngauss):
@@ -377,3 +410,34 @@ def compute_norm(m, v, ngauss):
         h1norm += localH1Seminorm2(elem, integ2d, uvals)
 
     return (np.sqrt(l2norm), np.sqrt(h1norm))
+
+def compute_norm_exact(m, v, ngauss):
+    """ Compute the L2 norm of the error of the FE solution v
+    Note: it is currently assumed that all elements are topologically identical and use the same basis functions.
+    """
+    # For a Lagrange element, the number of DOFs per element is the same as the number of nodes per element
+
+    if(m.nnodel[0] == 6):
+        elem = LagrangeP2TriangleElement()
+    elif(m.nnodel[0] == 3):
+        elem = LagrangeP1TriangleElement()
+    integ2d = GLQuadrature2DTriangle(ngauss)
+
+    l2norm = 0; h1norm = 0
+    print("compute_norm(): Computing norms...")
+
+    # iterate over the elements and add contributions
+    for ielem in range(m.nelem):
+        # setup required local arrays
+        phynodes = np.zeros((m.nnodel[ielem], 2))
+
+        # set element
+        phynodes[:,:] = m.coords[m.inpoel[ielem,:m.nnodel[ielem]],:]
+        elem.setPhysicalElementNodes(phynodes)
+        uvals = v[m.inpoel[ielem,:m.nnodel[ielem]]]
+
+        # compute and add contribution of this element
+        l2normlocal = localL2Norm2_exactAtQuad(elem, integ2d, uvals)
+        l2norm += l2normlocal
+
+    return np.sqrt(l2norm)
