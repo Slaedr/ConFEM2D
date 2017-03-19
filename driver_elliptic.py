@@ -3,6 +3,8 @@ import sys
 import gc
 import numpy as np
 import numpy.linalg
+import scipy.sparse as scs
+import scipy.sparse.linalg as scsl
 from matplotlib import pyplot as plt
 from mesh import *
 from fem import *
@@ -42,14 +44,21 @@ for imesh in range(numberofmeshes):
         print("Approximation polynomial degree = " + str(poly_degree))
 
     # compute
-    A = np.zeros((m.npoin,m.npoin),dtype=np.float64)
+    #A = np.zeros((m.npoin,m.npoin),dtype=np.float64)
+    A = scs.lil_matrix((m.npoin,m.npoin), dtype=np.float64)
     b = np.zeros(m.npoin, dtype=np.float64)
     assemble(m, dirBCnum, A, b, poly_degree, ngauss)
-    x = np.linalg.solve(A, b)
+    A = A.tocsr()
+    print("Solving linear system..")
+    #x = np.linalg.solve(A, b)
+    #x,info = scsl.gmres(A,b,tol=1e-5, maxiter=500)
+    lu = scsl.splu(A)
+    x = lu.solve(b)
+    print("Solved")
     #(Ad,bd,dirflags) = removeDirichletRowsAndColumns(m,A,b,dirBCnum)
     #x,xd = solveAndProcess(m, Ad, bd, dirflags)
 
-    print("Final relative residual = " + str(np.linalg.norm(np.dot(A,x)-b,2)/np.linalg.norm(b,2)))
+    #print("Final relative residual = " + str(np.linalg.norm(np.dot(A,x)-b,2)/np.linalg.norm(b,2)))
 
     # output
     writePointScalarToVTU(m, outs[imesh], "poisson", x)
@@ -92,9 +101,8 @@ for j in range(1,data.shape[1]):
 	plt.plot(data[:,0],data[:,j],symbs[j-1],label=labels[j-1]+str(pslope[j]))
 
 
-#plt.plot(data[:,0],data[:,2],'s-',label=labels[1]+str(pslope[1]))
-plt.title("Grid-refinement (legend: slopes)") # + title)
+"""plt.title("Grid-refinement (legend: slopes)") # + title)
 plt.xlabel("Log mesh size")
 plt.ylabel("Log error")
 plt.legend()
-plt.show()
+plt.show()"""
