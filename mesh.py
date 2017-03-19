@@ -9,7 +9,7 @@ meshclassspec = [('nbtags',int64),('ndtags',int64), ('npoin', int64), ('nelem',i
 
 #@jitclass(meshclassspec)
 class Mesh2d:
-    """ @brief Stores the mesh data.
+    """ @brief Stores the mesh data in a jit-able form
 
     Contains:
     - npoin: number of vertices in the mesh

@@ -11,27 +11,6 @@ from elements import *
 
 np.set_printoptions(linewidth=200)
 
-
-#@jit(nopython=True)
-"""def rhs_func(x,y):
-    return -cos(y)*cos(x+y) + x*sin(x+2*y) + (x*x + y*y)*x*cos(y)
-
-#@jit(nopython=True)
-def stiffness_coeff_func(x,y):
-    return sin(x+y)
-
-#@jit(nopython=True)
-def mass_coeff_func(x,y):
-    return x*x + y*y
-
-#@jit(nopython=True)
-def exact_sol(x,y):
-    return x*cos(y)
-
-#@jit(nopython=True)
-def dirichlet_function(x,y):
-    return exact_sol(x,y)"""
-
 #@jit(nopython=True)
 def rhs_func(x,y):
     return x*x + y*y-14.0
@@ -51,28 +30,30 @@ def exact_sol(x,y):
 #@jit(nopython=True)
 def dirichlet_function(x,y):
     return exact_sol(x,y)
-"""
-def rhs_func(x,y):
-    return exact_sol(x,y)*20/3.0
 
+"""# for heat equation
+def rhs_func(x,y):
+    return 0.0
+
+#@jit(nopython=True)
 def stiffness_coeff_func(x,y):
     return 1.0
 
+#@jit(nopython=True)
 def mass_coeff_func(x,y):
-    return 0.0
+    return 1.0
 
-def exact_sol(x,y):
-    #x[np.where(np.abs(x)<1e-14)] = x[np.where(np.abs(x)<1e-14)]+1e-12
-    #x[np.where(np.abs(x)<1e-14)] += 1e-12
-    x += 1e-13
-    return (1.0-x*x-y*y)*(x*x+y*y)**(1.0/3) * sin(2.0/3*(arctan(y/x)+np.pi/2.0))
+#@jit(nopython=True)
+def exact_sol(x,y,t):
+    return np.exp(t)
 
+#@jit(nopython=True)
 def dirichlet_function(x,y):
-    return 0.0
-"""
+    return 0.0"""
+
 
 #@jit(nopython=True, cache=True)
-def localStiffnessMatrix(elem, quadrature, localstiff):
+def localStiffnessMatrix(gmap, elem, quadrature, localstiff):
     """ Computes the local stiffness matrix (of size ndofpvarel x ndofpvarel) of element elem.
 	ndofpvarel = number of DOFs per variable per element.
     The output array localstiff needs to be pre-allocated with correct dimensions."""
@@ -90,10 +71,10 @@ def localStiffnessMatrix(elem, quadrature, localstiff):
 
         # get basis gradients and jacobian determinant
         elem.getBasisGradients(x,y,basisg)
-        jdet = elem.getJacobian(x,y,jac,jacinv)
+        jdet = gmap.getJacobian(x,y,jac,jacinv)
 
         # physical location of quadrature point for coefficient function evaluation
-        gx,gy = elem.evalGeomMapping(x,y)
+        gx,gy = gmap.evalGeomMapping(x,y)
 
         # add contribution of this quadrature point to each integral
         for i in range(ndof):
@@ -102,7 +83,7 @@ def localStiffnessMatrix(elem, quadrature, localstiff):
 
 
 #@jit(nopython=True, cache=True)
-def localH1Seminorm2(elem, quadrature, uvals):
+def localH1Seminorm2(gmap, elem, quadrature, uvals):
     """ Computes the local H^1 semi-norm squared of the FE function given by uvals on element elem.
     """
 
@@ -119,7 +100,7 @@ def localH1Seminorm2(elem, quadrature, uvals):
 
         # get basis gradients and jacobian determinant
         elem.getBasisGradients(x,y,basisg)
-        jdet = elem.getJacobian(x,y,jac,jacinv)
+        jdet = gmap.getJacobian(x,y,jac,jacinv)
 
         # physical location of quadrature point for coefficient function evaluation
         #gx,gy = elem.evalGeomMapping(x,y)
@@ -134,7 +115,7 @@ def localH1Seminorm2(elem, quadrature, uvals):
     return localseminorm2
 
 #@jit(nopython=True, cache=True)
-def localMassMatrix(elem, quadrature, localmass):
+def localMassMatrix(gmap, elem, quadrature, localmass):
     """ Computes the local mass matrix of element elem.
 	quadrature is the 2D quadrature contect to be used; has to be setup beforehand.
     The output array localmass needs to be pre-allocated."""
@@ -152,10 +133,10 @@ def localMassMatrix(elem, quadrature, localmass):
 
         # get basis function values and jacobian determinant
         elem.getBasisFunctions(x,y,basis)
-        jdet = elem.getJacobian(x,y,jac,jacinv)
+        jdet = gmap.getJacobian(x,y,jac,jacinv)
 
         # physical location of quadrature point for coefficient function evaluation
-        gx,gy = elem.evalGeomMapping(x,y)
+        gx,gy = gmap.evalGeomMapping(x,y)
 
         # add contribution of this quadrature point to each integral
         for i in range(ndof):
@@ -163,7 +144,7 @@ def localMassMatrix(elem, quadrature, localmass):
                 localmass[i,j] += w * mass_coeff_func(gx,gy) * basis[i]*basis[j]*jdet
 
 #@jit(nopython=True, cache=True)
-def localL2Norm2(elem, quadrature, uvals):
+def localL2Norm2(gmap, elem, quadrature, uvals):
     """ Computes the L2 norm squared of a FE function with dofs uvals on element elem.
 	quadrature is the 2D quadrature contect to be used; has to be setup beforehand.
     """
@@ -181,10 +162,7 @@ def localL2Norm2(elem, quadrature, uvals):
 
         # get basis function values and jacobian determinant
         elem.getBasisFunctions(x,y,basis)
-        jdet = elem.getJacobian(x,y,jac,jacinv)
-
-        # physical location of quadrature point for coefficient function evaluation
-        #gx,gy = elem.evalGeomMapping(x,y)
+        jdet = gmap.getJacobian(x,y,jac,jacinv)
 
         # add contribution of this quadrature point to the integral
         dofsum = 0
@@ -193,7 +171,7 @@ def localL2Norm2(elem, quadrature, uvals):
         localnorm2 += w * dofsum*dofsum * jdet
     return localnorm2
 
-def localL2Norm2_exactAtQuad(elem, quadrature, uvals):
+def localL2Norm2_exactAtQuad(gmap, elem, quadrature, uvals):
     """ Computes the L2 norm squared of the error of FE solution with dofs uvals on element elem.
     Actual values of the exact solution function are used at the quadrature points.
 	quadrature is the 2D quadrature contect to be used; has to be setup beforehand.
@@ -212,10 +190,10 @@ def localL2Norm2_exactAtQuad(elem, quadrature, uvals):
 
         # get basis function values and jacobian determinant
         elem.getBasisFunctions(x,y,basis)
-        jdet = elem.getJacobian(x,y,jac,jacinv)
+        jdet = gmap.getJacobian(x,y,jac,jacinv)
 
         # physical location of quadrature point for exact function evaluation
-        gx,gy = elem.evalGeomMapping(x,y)
+        gx,gy = gmap.evalGeomMapping(x,y)
         uexact = exact_sol(gx,gy)
 
         # add contribution of this quadrature point to the integral
@@ -226,7 +204,7 @@ def localL2Norm2_exactAtQuad(elem, quadrature, uvals):
     return localnorm2
 
 #@jit(nopython=True, cache=True)
-def localLoadVector_domain(elem, quadrature, localload):
+def localLoadVector_domain(gmap, elem, quadrature, localload):
     """ Computes the domain integral part of the local load vector.
     localload must be pre-allocated.
     """
@@ -244,10 +222,10 @@ def localLoadVector_domain(elem, quadrature, localload):
 
         # get basis gradients and jacobian determinant
         elem.getBasisFunctions(x,y,basis)
-        jdet = elem.getJacobian(x,y,jac,jacinv)
+        jdet = gmap.getJacobian(x,y,jac,jacinv)
 
         # physical location of quadrature point for coefficient function evaluation
-        gx,gy = elem.evalGeomMapping(x,y)
+        gx,gy = gmap.evalGeomMapping(x,y)
 
         # add contribution of this quadrature point to each integral
         for i in range(ndof):
@@ -261,16 +239,20 @@ def localLoadVector_boundary(face, quadrature, localload):
     pass
 
 #@jit(nopython=True, cache=True)
-def assemble(m, dirBCnum, A, b, ngauss):
+def assemble(m, dirBCnum, A, b, pdeg, ngauss):
     """ Assembles a (dense, for now) LHS matrix and RHS vector.
         Applies a penalty method for Dirichlet BCs.
     """
     # For a Lagrange element, the number of DOFs per element is the same as the number of nodes per element
 
+    elem = LagrangeTriangleElement()
+    elem.setDegree(pdeg)
+
+    gm = LagrangeTriangleMap()
     if(m.nnodel[0] == 6):
-        elem = LagrangeP2TriangleElement()
+        gm.setDegree(2)
     elif(m.nnodel[0] == 3):
-        elem = LagrangeP1TriangleElement()
+        gm.setDegree(1)
 
     integ2d = GLQuadrature2DTriangle(ngauss)
 
@@ -279,19 +261,19 @@ def assemble(m, dirBCnum, A, b, ngauss):
     # iterate over the elements and add contributions
     for ielem in range(m.nelem):
         # setup required local arrays
-        localmass = np.zeros((m.nnodel[ielem],m.nnodel[ielem]))
-        localstiff = np.zeros((m.nnodel[ielem], m.nnodel[ielem]))
-        localload = np.zeros(m.nnodel[ielem])
+        localmass = np.zeros((elem.ndof, elem.ndof))
+        localstiff = np.zeros((elem.ndof, elem.ndof))
+        localload = np.zeros(elem.ndof)
         phynodes = np.zeros((m.nnodel[ielem], 2))
 
         # set element
         phynodes[:,:] = m.coords[m.inpoel[ielem,:m.nnodel[ielem]],:]
-        elem.setPhysicalElementNodes(phynodes)
+        gm.setPhysicalElementNodes(phynodes)
 
         # get local matrices
-        localLoadVector_domain(elem, integ2d, localload)
-        localStiffnessMatrix(elem, integ2d, localstiff)
-        localMassMatrix(elem, integ2d, localmass)
+        localLoadVector_domain(gm, elem, integ2d, localload)
+        localStiffnessMatrix(gm, elem, integ2d, localstiff)
+        localMassMatrix(gm, elem, integ2d, localmass)
 
         # add contributions to global
         b[m.inpoel[ielem,:m.nnodel[ielem]]] += localload[:]
@@ -320,7 +302,6 @@ def assemble(m, dirBCnum, A, b, ngauss):
 
     for ipoin in range(m.npoin):
         if dirflags[ipoin] == 1:
-            #print("   applying Dirichlet BC to node " + str(ipoin))
             A[ipoin,ipoin] *= cbig
             b[ipoin] = A[ipoin,ipoin]*dirichlet_function(m.coords[ipoin,0], m.coords[ipoin,1])
 
@@ -379,16 +360,21 @@ def solveAndProcess(m, A, b, dirflag):
     return x,xd
 
 #@jit(nopython=True, cache=True)
-def compute_norm(m, v, ngauss):
+def compute_norm(m, v, pdeg, ngauss):
     """ Compute the L2 and H1 norms of the FE function v
     Note: it is currently assumed that all elements are topologically identical and use the same basis functions.
     """
     # For a Lagrange element, the number of DOFs per element is the same as the number of nodes per element
 
+    elem = LagrangeTriangleElement()
+    elem.setDegree(pdeg)
+
+    gm = LagrangeTriangleMap()
     if(m.nnodel[0] == 6):
-        elem = LagrangeP2TriangleElement()
+        gm.setDegree(2)
     elif(m.nnodel[0] == 3):
-        elem = LagrangeP1TriangleElement()
+        gm.setDegree(1)
+
     integ2d = GLQuadrature2DTriangle(ngauss)
 
     l2norm = 0; h1norm = 0
@@ -401,26 +387,31 @@ def compute_norm(m, v, ngauss):
 
         # set element
         phynodes[:,:] = m.coords[m.inpoel[ielem,:m.nnodel[ielem]],:]
-        elem.setPhysicalElementNodes(phynodes)
+        gm.setPhysicalElementNodes(phynodes)
         uvals = v[m.inpoel[ielem,:m.nnodel[ielem]]]
 
         # compute and add contribution of this element
-        l2normlocal = localL2Norm2(elem, integ2d, uvals)
+        l2normlocal = localL2Norm2(gm, elem, integ2d, uvals)
         l2norm += l2normlocal; h1norm += l2normlocal
-        h1norm += localH1Seminorm2(elem, integ2d, uvals)
+        h1norm += localH1Seminorm2(gm, elem, integ2d, uvals)
 
     return (np.sqrt(l2norm), np.sqrt(h1norm))
 
-def compute_norm_exact(m, v, ngauss):
+def compute_norm_exact(m, v, pdeg, ngauss):
     """ Compute the L2 norm of the error of the FE solution v
     Note: it is currently assumed that all elements are topologically identical and use the same basis functions.
     """
     # For a Lagrange element, the number of DOFs per element is the same as the number of nodes per element
 
+    elem = LagrangeTriangleElement()
+    elem.setDegree(pdeg)
+
+    gm = LagrangeTriangleMap()
     if(m.nnodel[0] == 6):
-        elem = LagrangeP2TriangleElement()
+        gm.setDegree(2)
     elif(m.nnodel[0] == 3):
-        elem = LagrangeP1TriangleElement()
+        gm.setDegree(1)
+
     integ2d = GLQuadrature2DTriangle(ngauss)
 
     l2norm = 0; h1norm = 0
@@ -433,11 +424,11 @@ def compute_norm_exact(m, v, ngauss):
 
         # set element
         phynodes[:,:] = m.coords[m.inpoel[ielem,:m.nnodel[ielem]],:]
-        elem.setPhysicalElementNodes(phynodes)
+        gm.setPhysicalElementNodes(phynodes)
         uvals = v[m.inpoel[ielem,:m.nnodel[ielem]]]
 
         # compute and add contribution of this element
-        l2normlocal = localL2Norm2_exactAtQuad(elem, integ2d, uvals)
+        l2normlocal = localL2Norm2_exactAtQuad(gm, elem, integ2d, uvals)
         l2norm += l2normlocal
 
     return np.sqrt(l2norm)
