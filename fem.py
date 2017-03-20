@@ -239,7 +239,7 @@ def localLoadVector_boundary(face, quadrature, localload):
     pass
 
 #@jit(nopython=True, cache=True)
-def assemble(m, dirBCnum, A, b, pdeg, ngauss):
+def assemble(m, dirBCnum, Ai, Aj, Av, b, pdeg, ngauss):
     """ Assembles a (dense, for now) LHS matrix and RHS vector.
         Applies a penalty method for Dirichlet BCs.
     """
@@ -280,7 +280,10 @@ def assemble(m, dirBCnum, A, b, pdeg, ngauss):
         for i in range(m.nnodel[ielem]):
             #b[m.inpoel[ielem,i]] += localload[i]
             for j in range(m.nnodel[ielem]):
-                A[m.inpoel[ielem,i], m.inpoel[ielem,j]] += localstiff[i,j] + localmass[i,j]
+                #A[m.inpoel[ielem,i], m.inpoel[ielem,j]] += localstiff[i,j] + localmass[i,j]
+                Ai.append(m.inpoel[ielem,i])
+                Aj.append(m.inpoel[ielem,j])
+                Av.append(localstiff[i,j]+localmass[i,j])
 
 
     # penalty for Dirichlet rows and columns
@@ -300,10 +303,31 @@ def assemble(m, dirBCnum, A, b, pdeg, ngauss):
                 for inode in range(m.nnofa[iface]):
                     dirflags[m.bface[iface,inode]] = 1
 
-    for ipoin in range(m.npoin):
+    """for ipoin in range(m.npoin):
         if dirflags[ipoin] == 1:
             A[ipoin,ipoin] *= cbig
-            b[ipoin] = A[ipoin,ipoin]*dirichlet_function(m.coords[ipoin,0], m.coords[ipoin,1])
+            b[ipoin] = A[ipoin,ipoin]*dirichlet_function(m.coords[ipoin,0], m.coords[ipoin,1])"""
+
+    # Since the matrix is not assembled yet, we need to make sure to multiply by cbig only once per row.
+    # Note that the new diagonal value in Dirichlet rows will be cbig*a[i,i]_1 + a[i,i]_2 ... + a[i,i]_npsup, and
+    # b[i] is set to the same value times the boundary value.
+    
+    processed = np.zeros(m.npoin, dtype=np.int32)
+    for i in range(m.npoin):
+        if dirflags[i] == 1:
+            b[i] = 0.0
+
+    for i in range(len(Ai)):
+        if dirflags[Ai[i]] == 1:
+            if Aj[i] == Ai[i]:
+                if processed[Ai[i]] == 0:
+                    processed[Ai[i]] = 1
+                    Av[i] *= cbig
+                b[Ai[i]] += Av[i]
+    
+    for i in range(m.npoin):
+        if dirflags[i] == 1:
+            b[i] *= dirichlet_function(m.coords[i,0], m.coords[i,1])
 
 
 def removeDirichletRowsAndColumns(m,A,b,dirBCnum):

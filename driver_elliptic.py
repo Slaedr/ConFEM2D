@@ -15,7 +15,6 @@ numberofmeshes = 3
 meshfile = "../Meshes-and-geometries/squarehole"
 dirBCnum = np.array([2,4])
 #dirBCnum = np.array([12,13])
-#outputfile = "../fem2d-results/squarehole.vtu"
 ngauss = 6
 
 # preprocess file names
@@ -45,10 +44,11 @@ for imesh in range(numberofmeshes):
 
     # compute
     #A = np.zeros((m.npoin,m.npoin),dtype=np.float64)
-    A = scs.lil_matrix((m.npoin,m.npoin), dtype=np.float64)
+    Ai = []; Aj = []; Av = []
     b = np.zeros(m.npoin, dtype=np.float64)
-    assemble(m, dirBCnum, A, b, poly_degree, ngauss)
-    A = A.tocsr()
+    assemble(m, dirBCnum, Ai, Aj, Av, b, poly_degree, ngauss)
+    #assemble(m, dirBCnum, A, b, poly_degree, ngauss)
+    A = scs.csr_matrix((Av,(Ai,Aj)), shape=(m.npoin,m.npoin))
     print("Solving linear system..")
     #x = np.linalg.solve(A, b)
     #x,info = scsl.gmres(A,b,tol=1e-5, maxiter=500)
