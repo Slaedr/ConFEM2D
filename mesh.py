@@ -2,10 +2,12 @@
 """
 
 import numpy as np
-from numba import jit, jitclass, int64, int32, float64
+import numba
+from numba import jit, jitclass, int64, float64
 
-meshclassspec = [('nbtags',int64),('ndtags',int64), ('npoin', int64), ('nelem',int64), ('nbface',int64), ('maxnnodel',int64), ('nnodel',int32[:]), ('nnofa',int32[:]), ('nfael', int32[:]),
-        ('coords', float64[:,:]), ('inpoel', int32[:,:]), ('bface',int32[:,:]), ('dtags',int32[:,:]), ('h',float64) ]
+meshclassspec = [('nbtags',int64),('ndtags',int64), ('npoin', int64), ('nelem',int64), ('nbface',int64), ('maxnnodel',int64), ('maxnnofa',int64), 
+        ('nnodel',int64[:]), ('nnofa',int64[:]), ('nfael', int64[:]),
+        ('coords', float64[:,:]), ('inpoel', int64[:,:]), ('bface',int64[:,:]), ('dtags',int64[:,:]), ('h',float64) ]
 
 #@jitclass(meshclassspec)
 class Mesh2d:
@@ -36,12 +38,12 @@ class Mesh2d:
         self.nbtags = nbt
         self.ndtags = ndt
         self.coords = np.zeros((self.npoin,2),dtype=np.float64)
-        self.inpoel = np.zeros((self.nelem,self.maxnnodel),dtype=np.int32)
-        self.bface = np.zeros((self.nbface,self.maxnnofa+self.nbtags),dtype=np.int32)
-        self.nnofa = np.zeros(self.nbface, dtype=np.int32)
-        self.nnodel = np.zeros(self.nelem,dtype=np.int32)
-        self.nfael = np.zeros(self.nelem,dtype=np.int32)
-        self.dtags = np.zeros((self.nelem,2),dtype=np.int32)
+        self.inpoel = np.zeros((self.nelem,self.maxnnodel),dtype=np.int64)
+        self.bface = np.zeros((self.nbface,self.maxnnofa+self.nbtags),dtype=np.int64)
+        self.nnofa = np.zeros(self.nbface, dtype=np.int64)
+        self.nnodel = np.zeros(self.nelem,dtype=np.int64)
+        self.nfael = np.zeros(self.nelem,dtype=np.int64)
+        self.dtags = np.zeros((self.nelem,2),dtype=np.int64)
         self.coords[:,:] = _coords[:,:]
         self.inpoel[:,:] = _inpoel[:,:]
         self.bface[:,:] = _bface[:,:]
@@ -183,3 +185,15 @@ class Mesh2dIO:
             print("Mesh2d: readGmsh(): ! Error in adding up!")
         print("readGmsh(): Done reading mesh.")
 
+#@jit(nopython=True, cache=True)
+def createMesh(npoin, nelem, nbface, maxnnodel, maxnnofa, nbtags, ndtags, coords, inpoel, bface, nnodel, nfael, nnofa, dtags):
+    # Create a compiled Mesh2d object
+    m = Mesh2d(npoin, nelem, nbface, maxnnodel, maxnnofa, nbtags, ndtags, coords, inpoel, bface, nnodel, nfael, nnofa, dtags)
+    return m
+
+if __name__ == "__main__":
+    mio = Mesh2dIO()
+    mio.readGmsh("../Meshes-and-geometries/squarehole0.msh")
+    m = Mesh2d(mio.npoin, mio.nelem, mio.nbface, mio.maxnnodel, mio.maxnnofa, mio.nbtags, mio.ndtags, mio.coords, mio.inpoel, mio.bface, mio.nnodel, mio.nfael, mio.nnofa, mio.dtags)
+    mio = 0
+    print(numba.typeof(m))

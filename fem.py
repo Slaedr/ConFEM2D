@@ -4,34 +4,37 @@
 import numpy as np
 import numpy.linalg
 from numpy import sin, cos, arctan
-from numba import jit, jitclass, int32, float64
+#from numba import jit, jitclass, int32, int64, float64, void, typeof
+import scipy.special as scp
 from mesh import *
 from quadrature import GLQuadrature1D, GLQuadrature2DTriangle
 from elements import *
 
 np.set_printoptions(linewidth=200)
 
-#@jit(nopython=True)
+"""
+#@jit(nopython=True, cache=True)
 def rhs_func(x,y):
     return x*x + y*y-14.0
 
-#@jit(nopython=True)
+#@jit(nopython=True, cache=True)
 def stiffness_coeff_func(x,y):
     return 1.0
 
-#@jit(nopython=True)
+#@jit(nopython=True, cache=True)
 def mass_coeff_func(x,y):
     return 1.0
 
-#@jit(nopython=True)
-def exact_sol(x,y):
+#@jit(nopython=True, cache=True)
+def exact_sol(x,y,t):
     return x*x + y*y - 10.0
 
-#@jit(nopython=True)
+#@jit(nopython=True, cache=True)
 def dirichlet_function(x,y):
-    return exact_sol(x,y)
+    return exact_sol(x,y,0)
+""" 
 
-"""# for heat equation
+#@jit(nopython=True)
 def rhs_func(x,y):
     return 0.0
 
@@ -49,8 +52,25 @@ def exact_sol(x,y,t):
 
 #@jit(nopython=True)
 def dirichlet_function(x,y):
-    return 0.0"""
+    return 0.0
 
+
+#@jit(nopython=True, cache=True)
+def matvec(A,b):
+    # Matvec
+    x = np.zeros(b.shape)
+    for i in range(A.shape[0]):
+        for j in range(b.shape[0]):
+            x[i] += A[i,j]*b[j]
+    return x
+
+#@jit(nopython=True, cache=True)
+def dotprod(a,b):
+    # Scalar product
+    x = 0.0
+    for i in range(a.shape[0]):
+        x += a[i]*b[i]
+    return x
 
 #@jit(nopython=True, cache=True)
 def localStiffnessMatrix(gmap, elem, quadrature, localstiff):
@@ -80,6 +100,7 @@ def localStiffnessMatrix(gmap, elem, quadrature, localstiff):
         for i in range(ndof):
             for j in range(ndof):
                 localstiff[i,j] += w * stiffness_coeff_func(gx,gy) * np.dot( np.dot(jacinv.T, basisg[i,:]), np.dot(jacinv.T, basisg[j,:]) ) * jdet
+                #localstiff[i,j] += w * stiffness_coeff_func(gx,gy) * dotprod( matvec(jacinv.T, basisg[i,:]), matvec(jacinv.T, basisg[j,:]) ) * jdet
 
 
 #@jit(nopython=True, cache=True)
@@ -108,8 +129,8 @@ def localH1Seminorm2(gmap, elem, quadrature, uvals):
         # add contribution of this quadrature point to the integral
         dofsum1 = np.array([0.0,0.0]); dofsum2 = np.array([0.0, 0.0])
         for i in range(ndof):
-            dofsum1[:] += uvals[i] * np.matmul(jacinv.T, basisg[i,:])
-            dofsum2[:] += uvals[i] * np.matmul(jacinv.T, basisg[i,:])
+            dofsum1[:] += uvals[i] * np.dot(jacinv.T, basisg[i,:])
+            dofsum2[:] += uvals[i] * np.dot(jacinv.T, basisg[i,:])
         localseminorm2 += np.dot(dofsum1,dofsum2) * w * jdet
 
     return localseminorm2
@@ -171,10 +192,10 @@ def localL2Norm2(gmap, elem, quadrature, uvals):
         localnorm2 += w * dofsum*dofsum * jdet
     return localnorm2
 
-def localL2Norm2_exactAtQuad(gmap, elem, quadrature, uvals):
+def localL2Norm2_exactAtQuad(gmap, elem, quadrature, uvals, time):
     """ Computes the L2 norm squared of the error of FE solution with dofs uvals on element elem.
     Actual values of the exact solution function are used at the quadrature points.
-	quadrature is the 2D quadrature contect to be used; has to be setup beforehand.
+    quadrature is the 2D quadrature context to be used; has to be setup beforehand.
     """
 
     ndof = uvals.shape[0]
@@ -194,7 +215,7 @@ def localL2Norm2_exactAtQuad(gmap, elem, quadrature, uvals):
 
         # physical location of quadrature point for exact function evaluation
         gx,gy = gmap.evalGeomMapping(x,y)
-        uexact = exact_sol(gx,gy)
+        uexact = exact_sol(gx,gy,time)
 
         # add contribution of this quadrature point to the integral
         dofsum = 0
@@ -238,9 +259,124 @@ def localLoadVector_boundary(face, quadrature, localload):
     """
     pass
 
-#@jit(nopython=True, cache=True)
+def assemble_stiffness(m, Ai, Aj, Av, b, pdeg, ngauss):
+    """ Assembles the stiffness matrix
+    """
+    # For a Lagrange element, the number of DOFs per element is the same as the number of nodes per element
+
+    elem = LagrangeTriangleElement()
+    elem.setDegree(pdeg)
+
+    gm = LagrangeTriangleMap()
+    if(m.nnodel[0] == 6):
+        gm.setDegree(2)
+    elif(m.nnodel[0] == 3):
+        gm.setDegree(1)
+
+    integ2d = GLQuadrature2DTriangle(ngauss)
+
+    print("assemble(): Beginning assembly loop over elements.")
+
+    # iterate over the elements and add contributions
+    for ielem in range(m.nelem):
+        # setup required local arrays
+        localstiff = np.zeros((elem.ndof, elem.ndof))
+        phynodes = np.zeros((m.nnodel[ielem], 2))
+
+        # set element
+        phynodes[:,:] = m.coords[m.inpoel[ielem,:m.nnodel[ielem]],:]
+        gm.setPhysicalElementNodes(phynodes)
+
+        # get local matrices
+        localStiffnessMatrix(gm, elem, integ2d, localstiff)
+
+        # add contributions to global
+        for i in range(m.nnodel[ielem]):
+            for j in range(m.nnodel[ielem]):
+                Ai.append(m.inpoel[ielem,i])
+                Aj.append(m.inpoel[ielem,j])
+                Av.append(localstiff[i,j])
+
+def assemble_mass(m, Ai, Aj, Av, b, pdeg, ngauss):
+    """ Assembles mass matrix.
+    """
+    # For a Lagrange element, the number of DOFs per element is the same as the number of nodes per element
+
+    elem = LagrangeTriangleElement()
+    elem.setDegree(pdeg)
+
+    gm = LagrangeTriangleMap()
+    if(m.nnodel[0] == 6):
+        gm.setDegree(2)
+    elif(m.nnodel[0] == 3):
+        gm.setDegree(1)
+
+    integ2d = GLQuadrature2DTriangle(ngauss)
+
+    print("assemble(): Beginning assembly loop over elements.")
+
+    # iterate over the elements and add contributions
+    for ielem in range(m.nelem):
+        # setup required local arrays
+        localmass = np.zeros((elem.ndof, elem.ndof))
+        phynodes = np.zeros((m.nnodel[ielem], 2))
+
+        # set element
+        phynodes[:,:] = m.coords[m.inpoel[ielem,:m.nnodel[ielem]],:]
+        gm.setPhysicalElementNodes(phynodes)
+
+        # get local matrices
+        localMassMatrix(gm, elem, integ2d, localmass)
+
+        # add contributions to global
+        for i in range(m.nnodel[ielem]):
+            for j in range(m.nnodel[ielem]):
+                Ai.append(m.inpoel[ielem,i])
+                Aj.append(m.inpoel[ielem,j])
+                Av.append(localmass[i,j])
+
+def applyDirichletPenalties(m, Ai, Aj, Av, dirBCnum):
+    # penalty for Dirichlet rows and columns
+    """ For the row of each node corresponding to a Dirichlet boundary, multiply the diagonal entry by a huge number cbig,
+        and set the RHS as boundary_value * cbig. This makes other entries in the row negligible, and the nodal value becomes
+        (almost) equal to the required boundary value.
+        I don't expect this to cause problems as the diagonal dominance of the matrix is increasing.
+    """
+
+    print("applyDirichletPenalites(): Imposing penalties on Dirichlet rows")
+    cbig = 1.0e30
+    dirflags = np.zeros(m.npoin,dtype=np.int64)
+
+    for iface in range(m.nbface):
+        for inum in range(len(dirBCnum)):
+            if m.bface[iface,m.nnofa[iface]] == dirBCnum[inum]:
+                for inode in range(m.nnofa[iface]):
+                    dirflags[m.bface[iface,inode]] = 1
+
+    # Since the matrix is not assembled yet, we need to make sure to multiply by cbig only once per row.
+    # Note that the new diagonal value in Dirichlet rows will be cbig*a[i,i]_1 + a[i,i]_2 ... + a[i,i]_npsup, and
+    # b[i] is set to the same value times the boundary value.
+    
+    processed = np.zeros(m.npoin, dtype=np.int64)
+    for i in range(m.npoin):
+        if dirflags[i] == 1:
+            b[i] = 0.0
+
+    for i in range(len(Ai)):
+        if dirflags[Ai[i]] == 1:
+            if Aj[i] == Ai[i]:
+                if processed[Ai[i]] == 0:
+                    processed[Ai[i]] = 1
+                    Av[i] *= cbig
+                b[Ai[i]] += Av[i]
+    
+    for i in range(m.npoin):
+        if dirflags[i] == 1:
+            b[i] *= dirichlet_function(m.coords[i,0], m.coords[i,1])
+
+#@jit (nopython=True, cache=True, locals = {"cbig":float64})
 def assemble(m, dirBCnum, Ai, Aj, Av, b, pdeg, ngauss):
-    """ Assembles a (dense, for now) LHS matrix and RHS vector.
+    """ Assembles a LHS matrix and RHS vector.
         Applies a penalty method for Dirichlet BCs.
     """
     # For a Lagrange element, the number of DOFs per element is the same as the number of nodes per element
@@ -278,7 +414,6 @@ def assemble(m, dirBCnum, Ai, Aj, Av, b, pdeg, ngauss):
         # add contributions to global
         b[m.inpoel[ielem,:m.nnodel[ielem]]] += localload[:]
         for i in range(m.nnodel[ielem]):
-            #b[m.inpoel[ielem,i]] += localload[i]
             for j in range(m.nnodel[ielem]):
                 #A[m.inpoel[ielem,i], m.inpoel[ielem,j]] += localstiff[i,j] + localmass[i,j]
                 Ai.append(m.inpoel[ielem,i])
@@ -295,7 +430,7 @@ def assemble(m, dirBCnum, Ai, Aj, Av, b, pdeg, ngauss):
 
     print("assembly(): Imposing penalties on Dirichlet rows")
     cbig = 1.0e30
-    dirflags = np.zeros(m.npoin,dtype=np.int32)
+    dirflags = np.zeros(m.npoin,dtype=np.int64)
 
     for iface in range(m.nbface):
         for inum in range(len(dirBCnum)):
@@ -312,7 +447,7 @@ def assemble(m, dirBCnum, Ai, Aj, Av, b, pdeg, ngauss):
     # Note that the new diagonal value in Dirichlet rows will be cbig*a[i,i]_1 + a[i,i]_2 ... + a[i,i]_npsup, and
     # b[i] is set to the same value times the boundary value.
     
-    processed = np.zeros(m.npoin, dtype=np.int32)
+    processed = np.zeros(m.npoin, dtype=np.int64)
     for i in range(m.npoin):
         if dirflags[i] == 1:
             b[i] = 0.0
@@ -421,7 +556,7 @@ def compute_norm(m, v, pdeg, ngauss):
 
     return (np.sqrt(l2norm), np.sqrt(h1norm))
 
-def compute_norm_exact(m, v, pdeg, ngauss):
+def compute_norm_exact(m, v, pdeg, ngauss, time):
     """ Compute the L2 norm of the error of the FE solution v
     Note: it is currently assumed that all elements are topologically identical and use the same basis functions.
     """
@@ -452,7 +587,7 @@ def compute_norm_exact(m, v, pdeg, ngauss):
         uvals = v[m.inpoel[ielem,:m.nnodel[ielem]]]
 
         # compute and add contribution of this element
-        l2normlocal = localL2Norm2_exactAtQuad(gm, elem, integ2d, uvals)
+        l2normlocal = localL2Norm2_exactAtQuad(gm, elem, integ2d, uvals, time)
         l2norm += l2normlocal
 
     return np.sqrt(l2norm)

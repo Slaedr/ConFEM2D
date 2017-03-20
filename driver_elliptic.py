@@ -1,6 +1,7 @@
 
 import sys
 import gc
+import numba
 import numpy as np
 import numpy.linalg
 import scipy.sparse as scs
@@ -71,7 +72,7 @@ for imesh in range(numberofmeshes):
     #l2norm, h1norm = compute_norm(m, err, poly_degree, ngauss)
 
     # uncomment for "exact" L2 errors, but no H1 error computation
-    l2norm = compute_norm_exact(m, x, poly_degree, ngauss)
+    l2norm = compute_norm_exact(m, x, poly_degree, ngauss, 0)
     h1norm = l2norm
 
     print("Mesh " + str(imesh))

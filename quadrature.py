@@ -2,7 +2,7 @@
 """
 
 import numpy as np
-from numba import jitclass, int64, int32, float64
+from numba import jitclass, int64, float64
 
 spec = [('ng', int64), ('gp', float64[:,:]), ('gw', float64[:])]
 

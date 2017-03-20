@@ -2,11 +2,11 @@
 """
 
 import numpy as np
-from numba import jit, generated_jit, jitclass, int32, float64
+from numba import jit, generated_jit, jitclass, int64, float64
 from mesh import *
 from quadrature import GLQuadrature1D, GLQuadrature2DTriangle
 
-spec = [('nnodel', int32), ('phynodes', float64[:,:])]
+mapspec = [('degree', int64), ('phynodes', float64[:,:])]
 
 class GeometricMap:
     """ @brief Abstract class for mapping between a physical element and a reference element.
@@ -34,40 +34,13 @@ class GeometricMap:
         """
         pass
 
-class P1Triangle(GeometricMap):
-
-    def evalGeomMapping(self,x,y):
-        rg = np.zeros(2)
-        rg[:] = self.phynodes[0,:]*(1.0-x-y) + self.phynodes[1,:]*x + self.phynodes[2,:]*y
-        return (rg[0],rg[1])
-
-    def getJacobian(self, x, y, jac, jacinv):
-        jac[:,0] = self.phynodes[1,:]-self.phynodes[0,:]
-        jac[:,1] = self.phynodes[2,:]-self.phynodes[0,:]
-        jdet = jac[0,0]*jac[1,1] - jac[0,1]*jac[1,0]
-        jacinv[0,0] = jac[1,1]/jdet; jacinv[0,1] = -jac[0,1]/jdet
-        jacinv[1,0] = -jac[1,0]/jdet; jacinv[1,1] = jac[0,0]/jdet
-        return jdet
-
-class P2Triangle(GeometricMap):
-
-    def evalGeomMapping(self,x,y):
-        rg = np.zeros(2)
-        rg[:] = self.phynodes[0,:]*(1.0-3*x-3*y+2*x*x+2*y*y+4*x*y) + self.phynodes[1,:]*(2.0*x*x-x) + self.phynodes[2,:]*(2.0*y*y-y) + \
-                self.phynodes[3,:]*4.0*(x-x*x-x*y) + self.phynodes[4,:]*4.0*x*y + self.phynodes[5,:]*4.0*(y-y*y-x*y)
-        return (rg[0],rg[1])
-
-    def getJacobian(self, x, y, jac, jacinv):
-        jac[:,0] = self.phynodes[0,:]*(-3+4*x+4*y) +self.phynodes[1,:]*(4*x-1) +self.phynodes[3,:]*4*(1-2*x-y) +self.phynodes[4,:]*4*y -self.phynodes[5,:]*4.0*y
-        jac[:,1] = self.phynodes[0,:]*(-3+4*y+4*x) +self.phynodes[2,:]*(4*y-1) -self.phynodes[3,:]*4*x +self.phynodes[4,:]*4*x +self.phynodes[5,:]*4*(1-2*y-x)
-        jdet = jac[0,0]*jac[1,1] - jac[0,1]*jac[1,0]
-        jacinv[0,0] = jac[1,1]/jdet; jacinv[0,1] = -jac[0,1]/jdet
-        jacinv[1,0] = -jac[1,0]/jdet; jacinv[1,1] = jac[0,0]/jdet
-        return jdet
-
+#@jitclass(mapspec)
 class LagrangeTriangleMap(GeometricMap):
     """ @brief Mapping from reference to physical element based on Lagrange basis functions.
     """
+    def __init__(self):
+        pass
+
     def evalGeomMapping(self,x,y):
         rg = np.zeros(2)
         if self.degree == 1:
@@ -105,6 +78,7 @@ class LagrangeTriangleMap(GeometricMap):
             jdet = jac[0,0]*jac[1,1] - jac[0,1]*jac[1,0]
         return jdet
 
+elemspec = [('degree', int64), ('ndof', int64)]
 
 class Element:
     """ @brief Abstract class for a finite element with basis functions defined on the reference element.
@@ -130,12 +104,12 @@ class Element:
         """
         pass
 
-#@jitclass(spec)
+#@jitclass(elemspec)
 class LagrangeTriangleElement(Element):
     """ Triangular element with Lagrange P1 basis for the trial/test space.
     """
     def __init__(self):
-        print("Initialized Lagrange triangle element.")
+        pass
 
     def setDegree(self, deg):
         self.degree = deg
