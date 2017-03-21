@@ -1,13 +1,13 @@
 
 import sys
-import gc
 import numba
 import numpy as np
-import numpy.linalg
 import scipy.sparse as scs
 import scipy.sparse.linalg as scsl
 from matplotlib import pyplot as plt
 from mesh import *
+from matrices import COOMatrix
+from coeff_functions import *
 from fem import *
 from output import *
 
@@ -17,6 +17,29 @@ meshfile = "../Meshes-and-geometries/squarehole"
 dirBCnum = np.array([2,4])
 #dirBCnum = np.array([12,13])
 ngauss = 6
+
+# functions
+#@jit(nopython=True, cache=True)
+def rhs_func(x,y):
+    return x*x + y*y-14.0
+
+#@jit(nopython=True, cache=True)
+def stiffness_coeff_func(x,y):
+    return 1.0
+
+#@jit(nopython=True, cache=True)
+def mass_coeff_func(x,y):
+    return 1.0
+
+#@jit(nopython=True, cache=True)
+def exact_sol(x,y,t):
+    return x*x + y*y - 10.0
+
+#@jit(nopython=True, cache=True)
+def dirichlet_function(x,y):
+    return exact_sol(x,y,0)
+
+funcs = CoeffFunctions(rhs_func, stiffness_coeff_func, mass_coeff_func, dirichlet_function)
 
 # preprocess file names
 meshes = []
@@ -44,22 +67,17 @@ for imesh in range(numberofmeshes):
         print("Approximation polynomial degree = " + str(poly_degree))
 
     # compute
-    #A = np.zeros((m.npoin,m.npoin),dtype=np.float64)
-    Ai = []; Aj = []; Av = []
+    Ac = COOMatrix(m.npoin, m.npoin)
     b = np.zeros(m.npoin, dtype=np.float64)
-    assemble(m, dirBCnum, Ai, Aj, Av, b, poly_degree, ngauss)
-    #assemble(m, dirBCnum, A, b, poly_degree, ngauss)
-    A = scs.csr_matrix((Av,(Ai,Aj)), shape=(m.npoin,m.npoin))
+    assemble(m, dirBCnum, Ac, b, poly_degree, ngauss, funcs)
+    A = scs.csc_matrix((Ac.vals,(Ac.rind,Ac.cind)), shape=(m.npoin,m.npoin))
     print("Solving linear system..")
-    #x = np.linalg.solve(A, b)
     #x,info = scsl.gmres(A,b,tol=1e-5, maxiter=500)
     lu = scsl.splu(A)
     x = lu.solve(b)
     print("Solved")
     #(Ad,bd,dirflags) = removeDirichletRowsAndColumns(m,A,b,dirBCnum)
     #x,xd = solveAndProcess(m, Ad, bd, dirflags)
-
-    #print("Final relative residual = " + str(np.linalg.norm(np.dot(A,x)-b,2)/np.linalg.norm(b,2)))
 
     # output
     writePointScalarToVTU(m, outs[imesh], "poisson", x)
@@ -72,7 +90,7 @@ for imesh in range(numberofmeshes):
     #l2norm, h1norm = compute_norm(m, err, poly_degree, ngauss)
 
     # uncomment for "exact" L2 errors, but no H1 error computation
-    l2norm = compute_norm_exact(m, x, poly_degree, ngauss, 0)
+    l2norm = compute_error(m, x, poly_degree, ngauss, 0, exact_sol)
     h1norm = l2norm
 
     print("Mesh " + str(imesh))
@@ -81,8 +99,6 @@ for imesh in range(numberofmeshes):
     data[imesh,0] = np.log10(m.h)
     data[imesh,1] = np.log10(l2norm)
     data[imesh,2] = np.log10(h1norm)
-
-    #gc.collect()
 
 # plots
 n = numberofmeshes
