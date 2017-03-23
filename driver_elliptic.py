@@ -39,7 +39,7 @@ def exact_sol(x,y,t):
 def dirichlet_function(x,y):
     return exact_sol(x,y,0)
 
-funcs = CoeffFunctions(rhs_func, stiffness_coeff_func, mass_coeff_func, dirichlet_function)
+funcs = CoeffFunctions(rhs_func, stiffness_coeff_func, mass_coeff_func, dirichlet_function, 0.0)
 
 # preprocess file names
 meshes = []

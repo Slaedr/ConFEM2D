@@ -305,15 +305,14 @@ def assemble_mass(m, A, b, pdeg, ngauss, coeff_mass):
                 A.cind.append(m.inpoel[ielem,j])
                 A.vals.append(localmass[i,j])
 
-def applyDirichletPenalties(m, A, dirBCnum, funcs):
-    # penalty for Dirichlet rows and columns
+def applyDirichletPenaltiesLHS(m, A, dirBCnum, dirflags):
+    # penalty for Dirichlet rows and columns, also computes dirflags
     """ For the row of each node corresponding to a Dirichlet boundary, multiply the diagonal entry by a huge number cbig,
-        and set the RHS as boundary_value * cbig. This makes other entries in the row negligible, and the nodal value becomes
-        (almost) equal to the required boundary value.
-        I don't expect this to cause problems as the diagonal dominance of the matrix is increasing.
+        and set the RHS as 0. This makes other entries in the row negligible, and the nodal value becomes
+        (almost) equal to the required boundary value 0.
     """
 
-    print("applyDirichletPenalites(): Imposing penalties on Dirichlet rows")
+    print("applyDirichletPenalitesIterative(): Imposing penalties on Dirichlet rows")
     cbig = 1.0e30
     dirflags = np.zeros(m.npoin,dtype=np.int64)
 
@@ -342,7 +341,16 @@ def applyDirichletPenalties(m, A, dirBCnum, funcs):
     
     for i in range(m.npoin):
         if dirflags[i] == 1:
-            b[i] *= funcs.dirichlet(m.coords[i,0], m.coords[i,1])
+            b[i] = 0.0
+
+def applyZeroDirichletRHS(b, dirflags):
+    # penalty for homogeneous Dirichlet rows and columns - for use with iterations like in time or nonlinear
+
+    #print("applyZeroDirichletRHS(): Zeroing Dirichlet components of RHS")
+    b[:] = np.where(dirflags==1, 0, b[:])
+    #for i in range(b.shape[0]):
+    #   if dirflags[i] == 1:
+    #       b[i] = 0.0
 
 #@jit (nopython=True, cache=True, locals = {"cbig":float64})
 def assemble(m, dirBCnum, A, b, pdeg, ngauss, funcs):
