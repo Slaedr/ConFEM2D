@@ -14,7 +14,7 @@ from ode1 import *
 from output import *
 
 # user input
-finaltime = 1.0
+finaltime = 0.5
 dt = 0.1
 numberofmeshes = 1
 meshfile = "../Meshes-and-geometries/disc"
@@ -39,7 +39,7 @@ class ExactSol:
     def __init__(self, a):
         self.r2 = jn_zeros(0,2)[-1]
         self.a = a
-        print("ExactSol: Bessel zero = "+str(r2))
+        print("ExactSol: Bessel zero = "+str(self.r2))
 
     def eval(x,y,t):
         return np.exp(-self.r2*self.r2*self.a*self.a*t)*j0(self.r2*np.sqrt(x*x+y*y))
@@ -50,17 +50,16 @@ exactsol = ExactSol(a)
 # preprocess file names
 meshes = []
 outs = []
-basename = fname.split('/')[-1]
+basename = meshfile.split('/')[-1]
 for imesh in range(numberofmeshes):
-	meshes.append(meshfile+str(imesh)+".msh")
-	outs.append("../fem2d-results/"+basename+str(imesh)+".vtu")
+    meshes.append(meshfile+str(imesh)+".msh")
+    outs.append("../fem2d-results/"+basename+str(imesh)+".vtu")
 
 data = np.zeros((numberofmeshes,3),dtype=np.float64)
 
 for imesh in range(numberofmeshes):
     mio = Mesh2dIO()
     mio.readGmsh(meshes[imesh])
-    mio.readGmsh(meshfile)
     m = Mesh2d(mio.npoin, mio.nelem, mio.nbface, mio.maxnnodel, mio.maxnnofa, mio.nbtags, mio.ndtags, 
             mio.coords, mio.inpoel, mio.bface, mio.nnodel, mio.nfael, mio.nnofa, mio.dtags)
     mio = 0
@@ -77,8 +76,8 @@ for imesh in range(numberofmeshes):
     Ac = COOMatrix(m.npoin, m.npoin)
     Mc = COOMatrix(m.npoin, m.npoin)
     b = np.zeros(m.npoin, dtype=np.float64)
-    assemble_stiffness(m, dirBCnum, Ac, b, poly_degree, ngauss, stiffness_coeff_func)
-    assemble_mass(m, dirBCnum, Mc, b, poly_degree, ngauss, mass_coeff_func)
+    assemble_stiffness(m, Ac, poly_degree, ngauss, stiffness_coeff_func)
+    assemble_mass(m, Mc, poly_degree, ngauss, mass_coeff_func)
     A = scs.csc_matrix((Ac.vals,(Ac.rind,Ac.cind)), shape=(m.npoin,m.npoin))
     M = scs.csc_matrix((Mc.vals,(Mc.rind,Mc.cind)), shape=(m.npoin,m.npoin))
 
@@ -87,7 +86,7 @@ for imesh in range(numberofmeshes):
 
     # set initial solution
     un = np.zeros(m.npoin)
-    un[:] = exactsol.eval(m.coords(:,0), m.coords(:,1), 0.0)
+    un[:] = exactsol.eval(m.coords[:,0], m.coords[:,1], 0.0)
     writePointScalarToVTU(m, outs[imesh]+"initial", "heat-initial", un)
 
     t = 0.0

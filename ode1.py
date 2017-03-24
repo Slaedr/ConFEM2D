@@ -46,7 +46,7 @@ class LForwardEuler(LinearOde1):
 
     def setOperators(self, A, M):
         # NOTE: Modifies M
-        M = M.multiply(1.0/dt)
+        M = M.multiply(1.0/self.dt)
         applyDirichletPenaltiesLHS(self.m, M, self.dirBCnum, self.dirflags)
         self.fM = factorizeMatrix(M)
         self.A = A
@@ -63,7 +63,7 @@ class LBackwardEuler(LinearOde1):
     def setOperators(self, A, M):
         # NOTE: M is modified
         self.A = A
-        M = M.multiply(1.0/dt) - A
+        M = M.multiply(1.0/self.dt) - A
         # apply penalties to Dirichlet rows and classify points into Dirichlet or not (dirflags)
         applyDirichletPenaltiesLHS(self.m, M, self.dirBCnum, self.dirflags)
         self.fM = factorizeMatrix(M)
@@ -76,7 +76,7 @@ class LCrankNicolson(LinearOde1):
     def setOperators(self, A, M):
         # NOTE: M is modified
         self.A = A
-        M = M.multiply(1.0/dt) - A.multiply(0.5)
+        M = M.multiply(1.0/self.dt) - A.multiply(0.5)
         # apply penalties to Dirichlet rows and classify points into Dirichlet or not (dirflags)
         applyDirichletPenaltiesLHS(self.m, M, self.dirBCnum, self.dirflags)
         self.fM = factorizeMatrix(M)

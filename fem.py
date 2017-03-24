@@ -229,7 +229,7 @@ def localLoadVector_boundary(face, quadrature, localload):
     """
     pass
 
-def assemble_stiffness(m, A, b, pdeg, ngauss, coeff_stiff):
+def assemble_stiffness(m, A, pdeg, ngauss, coeff_stiff):
     """ Assembles the stiffness matrix
     """
     # For a Lagrange element, the number of DOFs per element is the same as the number of nodes per element
@@ -267,7 +267,7 @@ def assemble_stiffness(m, A, b, pdeg, ngauss, coeff_stiff):
                 A.cind.append(m.inpoel[ielem,j])
                 A.vals.append(localstiff[i,j])
 
-def assemble_mass(m, A, b, pdeg, ngauss, coeff_mass):
+def assemble_mass(m, A, pdeg, ngauss, coeff_mass):
     """ Assembles mass matrix.
     """
     # For a Lagrange element, the number of DOFs per element is the same as the number of nodes per element
