@@ -101,10 +101,9 @@ class Mesh2dIO:
             f.readline()
         
         self.npoin = int(f.readline())
-        print("readGmsh(): Num points = " + str(self.npoin))
         temp = np.fromfile(f, dtype=float, count=self.npoin*4, sep=" ").reshape((self.npoin,4))
         self.coords = temp[:,1:-1]
-        print("readGmsh(): Coords read. Shape of coords is "+str(self.coords.shape))
+        print("  readGmsh(): Coords read. Shape of coords is "+str(self.coords.shape))
 
         for i in range(2):
             f.readline()
@@ -126,8 +125,6 @@ class Mesh2dIO:
             for j in range(len(elem)):
                 allelems[i,j] = elem[j]
         f.close()
-
-        print("readGmsh(): All elements read.")
 
         self.bface = np.zeros((self.nbface, self.maxnnofa+self.nbtags),dtype=int)
         self.inpoel = np.zeros((self.nelem, self.maxnnodel), dtype=int)
@@ -183,7 +180,6 @@ class Mesh2dIO:
         
         if ielem != self.nelem or iface != self.nbface:
             print("Mesh2d: readGmsh(): ! Error in adding up!")
-        print("readGmsh(): Done reading mesh.")
 
 #@jit(nopython=True, cache=True)
 def createMesh(npoin, nelem, nbface, maxnnodel, maxnnofa, nbtags, ndtags, coords, inpoel, bface, nnodel, nfael, nnofa, dtags):

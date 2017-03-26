@@ -53,5 +53,5 @@ def writePointScalarToVTU(m, filename, scalarname, x):
 
     fout.write("\t</Piece>\n</UnstructuredGrid>\n</VTKFile>")
     fout.close()
-    print("WritePointScalarToVTU: File written.")
+    print(" WritePointScalarToVTU: File written.")
 

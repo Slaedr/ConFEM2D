@@ -50,15 +50,15 @@ class GLQuadrature2DTriangle(Quadrature):
         if self.ng == 1:
             self.gp[0,:] = [1.0/3, 1.0/3]
             self.gw[0] = 0.5
-            print("GLQuadrature2DTriangle: Ngauss = 1.")
+            #print("GLQuadrature2DTriangle: Ngauss = 1.")
         elif self.ng == 3:
             self.gp[:,:] = np.array([0.6666666666667,0.1666666666667 , 0.1666666666667,0.6666666666667,  0.1666666666667,0.1666666666667]).reshape((self.ng,2))
             self.gw[:] = [0.1666666666667, 0.1666666666667, 0.1666666666667]
-            print("GLQuadrature2DTriangle: Ngauss = 3.")
+            #print("GLQuadrature2DTriangle: Ngauss = 3.")
         elif self.ng == 4:
             self.gp = np.array([0.33333333333,0.33333333333,  0.20000000000,0.20000000000,  0.20000000000, 0.60000000000,  0.60000000000, 0.20000000000]).reshape((self.ng,2))
             self.gw[:] = [-0.28125000000, 0.26041666667, 0.26041666667, 0.26041666667]
-            print("GLQuadrature2DTriangle: Ngauss = 4.")
+            #print("GLQuadrature2DTriangle: Ngauss = 4.")
         elif self.ng == 6:
             self.gp[:,:] = np.array([0.108103018168070,0.445948490915965,
                     0.445948490915965,0.108103018168070,
@@ -72,7 +72,7 @@ class GLQuadrature2DTriangle(Quadrature):
                        0.0549758718276610,
                        0.0549758718276610,
                        0.0549758718276610]
-            print("GLQuadrature2DTriangle: Ngauss = 6.")
+            #print("GLQuadrature2DTriangle: Ngauss = 6.")
         elif self.ng == 12:
             self.gp[:,:] = np.array([0.873821971016996,0.063089014491502,
                       0.063089014491502,0.873821971016996,
@@ -98,6 +98,6 @@ class GLQuadrature2DTriangle(Quadrature):
                        0.0414255378091870,
                        0.0414255378091870,
                        0.0414255378091870]
-            print("GLQuadrature2DTriangle: Ngauss = 12.")
+            #print("GLQuadrature2DTriangle: Ngauss = 12.")
         else:
             print("! GLQuadrature2DTriangle: Quadrature with this number of Gauss points is not supported!")

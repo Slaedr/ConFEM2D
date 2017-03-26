@@ -39,7 +39,12 @@ def exact_sol(x,y,t):
 def dirichlet_function(x,y):
     return exact_sol(x,y,0)
 
+class ExactSol:
+    def eval(self,x,y,t):
+        return x*x + y*y - 10.0
+
 funcs = CoeffFunctions(rhs_func, stiffness_coeff_func, mass_coeff_func, dirichlet_function, 0.0)
+exactsol = ExactSol()
 
 # preprocess file names
 meshes = []
@@ -90,7 +95,7 @@ for imesh in range(numberofmeshes):
     #l2norm, h1norm = compute_norm(m, err, poly_degree, ngauss)
 
     # uncomment for "exact" L2 errors, but no H1 error computation
-    l2norm = compute_error(m, x, poly_degree, ngauss, 0, exact_sol)
+    l2norm = compute_error(m, x, poly_degree, ngauss, 0, exactsol)
     h1norm = l2norm
 
     print("Mesh " + str(imesh))
@@ -118,8 +123,8 @@ for j in range(1,data.shape[1]):
 	plt.plot(data[:,0],data[:,j],symbs[j-1],label=labels[j-1]+str(pslope[j]))
 
 
-"""plt.title("Grid-refinement (legend: slopes)") # + title)
+plt.title("Grid-refinement (legend: slopes)") # + title)
 plt.xlabel("Log mesh size")
 plt.ylabel("Log error")
 plt.legend()
-plt.show()"""
+plt.show()

@@ -14,6 +14,8 @@ from elements import *
 
 np.set_printoptions(linewidth=200)
 
+cbig = 1.0e30
+
 #@jit(nopython=True, cache=True)
 def localStiffnessMatrix(gmap, elem, quadrature, stiffness_coeff_func, localstiff):
     """ Computes the local stiffness matrix (of size ndofpvarel x ndofpvarel) of element elem.
@@ -64,7 +66,7 @@ def localH1Seminorm2(gmap, elem, quadrature, uvals):
         jdet = gmap.getJacobian(x,y,jac,jacinv)
 
         # add contribution of this quadrature point to the integral
-        dofsum1 = np.array([0.0,0.0]); dofsum2 = np.array([0.0, 0.0])
+        dofsum = np.array([0.0,0.0])
         for i in range(ndof):
             dofsum[:] += uvals[i] * np.dot(jacinv.T, basisg[i,:])
         localseminorm2 += np.dot(dofsum,dofsum) * w * jdet
@@ -185,7 +187,7 @@ def localL2Error2(gmap, elem, quadrature, uvals, time, exact_sol):
 
         # physical location of quadrature point for exact function evaluation
         gx,gy = gmap.evalGeomMapping(x,y)
-        uexact = exact_sol(gx,gy,time)
+        uexact = exact_sol.eval(gx,gy,time)
 
         # add contribution of this quadrature point to the integral
         dofsum = 0
@@ -245,7 +247,7 @@ def assemble_stiffness(m, A, pdeg, ngauss, coeff_stiff):
 
     integ2d = GLQuadrature2DTriangle(ngauss)
 
-    print("assemble(): Beginning assembly loop over elements.")
+    print("  assemble(): Beginning stiffness assembly loop")
 
     # iterate over the elements and add contributions
     for ielem in range(m.nelem):
@@ -283,7 +285,7 @@ def assemble_mass(m, A, pdeg, ngauss, coeff_mass):
 
     integ2d = GLQuadrature2DTriangle(ngauss)
 
-    print("assemble(): Beginning assembly loop over elements.")
+    print("  assemble(): Beginning mass assembly loop")
 
     # iterate over the elements and add contributions
     for ielem in range(m.nelem):
@@ -310,47 +312,26 @@ def applyDirichletPenaltiesLHS(m, A, dirBCnum, dirflags):
     """ For the row of each node corresponding to a Dirichlet boundary, multiply the diagonal entry by a huge number cbig,
         and set the RHS as 0. This makes other entries in the row negligible, and the nodal value becomes
         (almost) equal to the required boundary value 0.
+        @param A is a matrix with an accessor method, not an object of class COOMatrix.
     """
 
-    print("applyDirichletPenalitesIterative(): Imposing penalties on Dirichlet rows")
-    cbig = 1.0e30
-    dirflags = np.zeros(m.npoin,dtype=np.int64)
+    print("  applyDirichletPenalitesIterative(): Imposing penalties on Dirichlet rows")
 
     for iface in range(m.nbface):
         for inum in range(len(dirBCnum)):
             if m.bface[iface,m.nnofa[iface]] == dirBCnum[inum]:
                 for inode in range(m.nnofa[iface]):
                     dirflags[m.bface[iface,inode]] = 1
-
-    # Since the matrix is not assembled yet, we need to make sure to multiply by cbig only once per row.
-    # Note that the new diagonal value in Dirichlet rows will be cbig*a[i,i]_1 + a[i,i]_2 ... + a[i,i]_npsup, and
-    # b[i] is set to the same value times the boundary value.
-    
-    processed = np.zeros(m.npoin, dtype=np.int64)
-    for i in range(m.npoin):
-        if dirflags[i] == 1:
-            b[i] = 0.0
-
-    for i in range(len(A.rind)):
-        if dirflags[A.rind[i]] == 1:
-            if A.cind[i] == A.rind[i]:
-                if processed[A.rind[i]] == 0:
-                    processed[A.rind[i]] = 1
-                    A.vals[i] *= cbig
-                b[A.rind[i]] += A.vals[i]
     
     for i in range(m.npoin):
         if dirflags[i] == 1:
-            b[i] = 0.0
+            A[i,i] *= cbig
 
-def applyZeroDirichletRHS(b, dirflags):
-    # penalty for homogeneous Dirichlet rows and columns - for use with iterations like in time or nonlinear
-
-    #print("applyZeroDirichletRHS(): Zeroing Dirichlet components of RHS")
-    b[:] = np.where(dirflags==1, 0, b[:])
-    #for i in range(b.shape[0]):
-    #   if dirflags[i] == 1:
-    #       b[i] = 0.0
+def applyDirichletRHS(b, dirflags, dirval):
+    """ penalty for homogeneous Dirichlet rows and columns - for use with iterations like in time or nonlinear
+    Imposes a constant Dirichlet value.
+    """
+    b[:] = np.where(dirflags==1, cbig*dirval, b[:])
 
 #@jit (nopython=True, cache=True, locals = {"cbig":float64})
 def assemble(m, dirBCnum, A, b, pdeg, ngauss, funcs):
@@ -515,7 +496,6 @@ def compute_norm(m, v, pdeg, ngauss):
     integ2d = GLQuadrature2DTriangle(ngauss)
 
     l2norm = 0; h1norm = 0
-    print("compute_norm(): Computing norms...")
 
     # iterate over the elements and add contributions
     for ielem in range(m.nelem):
