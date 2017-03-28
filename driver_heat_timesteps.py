@@ -24,7 +24,7 @@ ntimesteps = 3
 meshfile = "../Meshes-and-geometries/discquad4"
 dirBCnum = np.array([2,])
 ngauss = 6
-a = 1.0
+a = 0.9
 #-----------
 ############
 
@@ -48,7 +48,7 @@ class ExactSol:
         print("ExactSol: Bessel zero = "+str(self.r2))
 
     def eval(self,x,y,t):
-        return np.exp(-self.r2*self.r2*self.a*self.a*t)*j0(self.r2*np.sqrt(x*x+y*y))
+        return np.exp(-self.r2*self.r2*self.a*t)*j0(self.r2*np.sqrt(x*x+y*y))
 
 funcs = CoeffFunctions(rhs_func, stiffness_coeff_func, mass_coeff_func, dirichlet_function, a)
 exactsol = ExactSol(a)
@@ -90,8 +90,8 @@ for it in range(ntimesteps):
     A = scs.csc_matrix((Ac.vals,(Ac.rind,Ac.cind)), shape=(m.npoin,m.npoin))
     M = scs.csc_matrix((Mc.vals,(Mc.rind,Mc.cind)), shape=(m.npoin,m.npoin))
     #be = LForwardEuler(m, dirBCnum, dt)
-    be = LBackwardEuler(m, dirBCnum, dt)
-    #be = LCrankNicolson(m, dirBCnum, dt)
+    #be = LBackwardEuler(m, dirBCnum, dt)
+    be = LCrankNicolson(m, dirBCnum, dt)
     be.setOperators(A,M)
 
     # set initial solution

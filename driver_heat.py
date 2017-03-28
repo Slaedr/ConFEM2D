@@ -44,7 +44,7 @@ class ExactSol:
         print("ExactSol: Bessel zero = "+str(self.r2))
 
     def eval(self,x,y,t):
-        return np.exp(-self.r2*self.r2*self.a*self.a*t)*j0(self.r2*np.sqrt(x*x+y*y))
+        return np.exp(-self.r2*self.r2*self.a*t)*j0(self.r2*np.sqrt(x*x+y*y))
 
 funcs = CoeffFunctions(rhs_func, stiffness_coeff_func, mass_coeff_func, dirichlet_function, a)
 exactsol = ExactSol(a)
