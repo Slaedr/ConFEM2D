@@ -325,7 +325,7 @@ def applyDirichletPenaltiesLHS(m, A, dirBCnum, dirflags):
     
     for i in range(m.npoin):
         if dirflags[i] == 1:
-            A[i,i] *= cbig
+            A[i,i] = cbig
 
 def applyDirichletRHS(b, dirflags, dirval):
     """ penalty for homogeneous Dirichlet rows and columns - for use with iterations like in time or nonlinear

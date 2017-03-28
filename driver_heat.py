@@ -29,7 +29,7 @@ def rhs_func(x,y):
 
 def stiffness_coeff_func(x,y):
     # equal to -a!
-    return -1.0
+    return -a
 
 def mass_coeff_func(x,y):
     return 1.0
@@ -84,8 +84,8 @@ for imesh in range(numberofmeshes):
     A = scs.csc_matrix((Ac.vals,(Ac.rind,Ac.cind)), shape=(m.npoin,m.npoin))
     M = scs.csc_matrix((Mc.vals,(Mc.rind,Mc.cind)), shape=(m.npoin,m.npoin))
 
-    be = LBackwardEuler(m, dirBCnum, dt)
-    #be = LCrankNicolson(m, dirBCnum, dt)
+    #be = LBackwardEuler(m, dirBCnum, dt)
+    be = LCrankNicolson(m, dirBCnum, dt)
     be.setOperators(A,M)
 
     # set initial solution
