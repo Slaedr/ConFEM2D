@@ -41,9 +41,7 @@ def localStiffnessMatrix(gmap, elem, quadrature, stiffness_coeff_func, localstif
         gx,gy = gmap.evalGeomMapping(x,y)
 
         # add contribution of this quadrature point to each integral
-        for i in range(ndof):
-            for j in range(ndof):
-                localstiff[i,j] += w * stiffness_coeff_func(gx,gy) * np.dot( np.dot(jacinv.T, basisg[i,:]), np.dot(jacinv.T, basisg[j,:]) ) * jdet
+        localstiff += w*stiffness_coeff_func(gx,gy)*jdet * np.dot(np.dot(basisg,jacinv), np.dot(jacinv.T,basisg.T))
 
 
 def localH1Seminorm2(gmap, elem, quadrature, uvals):
@@ -75,7 +73,7 @@ def localH1Seminorm2(gmap, elem, quadrature, uvals):
 
 #@jit(nopython=True, cache=True)
 def localH1SeminormError2(gmap, elem, quadrature, uvals, time, exact_grad):
-    """ Computes the local H^1 semi-norm squared of the error 
+    """ Computes the local H^1 semi-norm squared of the error
     between the FE function given by uvals on element elem and the exact solution.
     """
 
@@ -132,9 +130,7 @@ def localMassMatrix(gmap, elem, quadrature, mass_coeff_func, localmass):
         gx,gy = gmap.evalGeomMapping(x,y)
 
         # add contribution of this quadrature point to each integral
-        for i in range(ndof):
-            for j in range(ndof):
-                localmass[i,j] += w * mass_coeff_func(gx,gy) * basis[i]*basis[j]*jdet
+        localmass += w*mass_coeff_func(gx,gy)*jdet * np.outer(basis,basis)
 
 #@jit(nopython=True, cache=True)
 def localL2Norm2(gmap, elem, quadrature, uvals):
@@ -190,9 +186,7 @@ def localL2Error2(gmap, elem, quadrature, uvals, time, exact_sol):
         uexact = exact_sol.eval(gx,gy,time)
 
         # add contribution of this quadrature point to the integral
-        dofsum = 0
-        for i in range(ndof):
-            dofsum += uvals[i] * basis[i]
+        dofsum = np.dot(uvals.T, basis)
         localnorm2 += w * (dofsum-uexact)*(dofsum-uexact) * jdet
     return localnorm2
 
@@ -221,8 +215,7 @@ def localLoadVector_domain(gmap, elem, quadrature, rhs_func, localload):
         gx,gy = gmap.evalGeomMapping(x,y)
 
         # add contribution of this quadrature point to each integral
-        for i in range(ndof):
-            localload[i] += w * rhs_func(gx,gy)*basis[i] * jdet
+        localload += w * rhs_func(gx,gy)*jdet * basis
 
 def localLoadVector_boundary(face, quadrature, localload):
     """ Computes the local boundary integral part of load vector for Neumann BCs.
@@ -322,7 +315,7 @@ def applyDirichletPenaltiesLHS(m, A, dirBCnum, dirflags):
             if m.bface[iface,m.nnofa[iface]] == dirBCnum[inum]:
                 for inode in range(m.nnofa[iface]):
                     dirflags[m.bface[iface,inode]] = 1
-    
+
     for i in range(m.npoin):
         if dirflags[i] == 1:
             A[i,i] = cbig
@@ -405,7 +398,7 @@ def assemble(m, dirBCnum, A, b, pdeg, ngauss, funcs):
     # Since the matrix is not assembled yet, we need to make sure to multiply by cbig only once per row.
     # Note that the new diagonal value in Dirichlet rows will be cbig*a[i,i]_1 + a[i,i]_2 ... + a[i,i]_npsup, and
     # b[i] is set to the same value times the boundary value.
-    
+
     processed = np.zeros(m.npoin, dtype=np.int64)
     for i in range(m.npoin):
         if dirflags[i] == 1:
@@ -418,7 +411,7 @@ def assemble(m, dirBCnum, A, b, pdeg, ngauss, funcs):
                     processed[A.rind[i]] = 1
                     A.vals[i] *= cbig
                 b[A.rind[i]] += A.vals[i]
-    
+
     for i in range(m.npoin):
         if dirflags[i] == 1:
             b[i] *= funcs.dirichlet(m.coords[i,0], m.coords[i,1])
@@ -542,7 +535,7 @@ def compute_error(m, v, pdeg, ngauss, time, exact_soln):
         # set element
         phynodes[:,:] = m.coords[m.inpoel[ielem,:m.nnodel[ielem]],:]
         gm.setPhysicalElementNodes(phynodes)
-        uvals = v[m.inpoel[ielem,:m.nnodel[ielem]]]
+        uvals = v[m.inpoel[ielem,:m.nnodel[ielem]]]                     # this only works for isoparametric!
 
         # compute and add contribution of this element
         l2normlocal = localL2Error2(gm, elem, integ2d, uvals, time, exact_soln)

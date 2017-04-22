@@ -59,10 +59,11 @@ for imesh in range(numberofmeshes):
     # mesh
     mio = Mesh2dIO()
     mio.readGmsh(meshes[imesh])
-    m = Mesh2d(mio.npoin, mio.nelem, mio.nbface, mio.maxnnodel, mio.maxnnofa, mio.nbtags, mio.ndtags, 
+    m = Mesh2d(mio.npoin, mio.nelem, mio.nbface, mio.maxnnodel, mio.maxnnofa, mio.nbtags, mio.ndtags,
             mio.coords, mio.inpoel, mio.bface, mio.nnodel, mio.nfael, mio.nnofa, mio.dtags)
     mio = 0
 
+    # The code currently only works for isoparametric discretization
     poly_degree = 0
     if m.nnodel[0] == 3:
         poly_degree = 1
@@ -120,11 +121,11 @@ for j in range(1,data.shape[1]):
 
 	pslope[j] = (n*psigxy-sigx*psigy)/(n*sigx2-sigx**2)
 	print("Slope is " + str(pslope[j]))
-	plt.plot(data[:,0],data[:,j],symbs[j-1],label=labels[j-1]+str(pslope[j]))
+	#plt.plot(data[:,0],data[:,j],symbs[j-1],label=labels[j-1]+str(pslope[j]))
 
 
-plt.title("Grid-refinement (legend: slopes)") # + title)
-plt.xlabel("Log mesh size")
-plt.ylabel("Log error")
-plt.legend()
-plt.show()
+#plt.title("Grid-refinement (legend: slopes)") # + title)
+#plt.xlabel("Log mesh size")
+#plt.ylabel("Log error")
+#plt.legend()
+#plt.show()
