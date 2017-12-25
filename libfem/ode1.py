@@ -7,10 +7,10 @@ from numpy import sin, cos, arctan
 import scipy.sparse as scs
 import scipy.sparse.linalg as scsl
 import scipy.linalg as scl
-from mesh import *
-from quadrature import GLQuadrature1D, GLQuadrature2DTriangle
-from elements import *
-from fem import *
+from .mesh import *
+from .quadrature import GLQuadrature1D, GLQuadrature2DTriangle
+from .elements import *
+from .fem import *
 
 np.set_printoptions(linewidth=200)
 
@@ -95,4 +95,3 @@ class LBDF1:
         b = self.resop.dot(un)
         applyDirichletRHS(b, self.dirflags, self.dirval)
         un[:] = self.jac.solve(b)
-

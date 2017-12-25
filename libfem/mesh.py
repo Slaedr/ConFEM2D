@@ -5,7 +5,7 @@ import numpy as np
 import numba
 from numba import jit, jitclass, int64, float64
 
-meshclassspec = [('nbtags',int64),('ndtags',int64), ('npoin', int64), ('nelem',int64), ('nbface',int64), ('maxnnodel',int64), ('maxnnofa',int64), 
+meshclassspec = [('nbtags',int64),('ndtags',int64), ('npoin', int64), ('nelem',int64), ('nbface',int64), ('maxnnodel',int64), ('maxnnofa',int64),
         ('nnodel',int64[:]), ('nnofa',int64[:]), ('nfael', int64[:]),
         ('coords', float64[:,:]), ('inpoel', int64[:,:]), ('bface',int64[:,:]), ('dtags',int64[:,:]), ('h',float64) ]
 
@@ -27,9 +27,11 @@ class Mesh2d:
     - dtags: array containing domain marker tags
     - bface: array containing vertex numbers of vertices in each boundary face, as well as two boundary markers per boundary face
 
-    Note that BCs are handled later with the help of the tags stored in bface, which are read from the Gmsh file.
+    Note that BCs are handled later with the help of the tags stored in bface,
+    which are read from the Gmsh file.
     """
-    def __init__(self, npo, ne, nf, maxnp, maxnf, nbt, ndt, _coords, _inpoel, _bface, _nnodel, _nfael, _nnofa, _dtags):
+    def __init__(self, npo, ne, nf, maxnp, maxnf, nbt, ndt, _coords, _inpoel, _bface, \
+    _nnodel, _nfael, _nnofa, _dtags):
         self.npoin = npo
         self.nelem = ne
         self.nbface = nf
@@ -52,7 +54,7 @@ class Mesh2d:
         self.nnofa[:] = _nnofa[:]
         self.dtags[:,:] = _dtags[:,:]
 
-        # compute mesh size parameter h 
+        # compute mesh size parameter h
         # length of longest edge in the mesh - reasonable for triangular elements
         self.h = 0.0
         for ielem in range(self.nelem):
@@ -62,7 +64,7 @@ class Mesh2d:
                 faceh = np.sqrt(facevec[0]*facevec[0]+facevec[1]*facevec[1])
                 if self.h < faceh:
                     self.h = faceh
-        
+
         #print("Mesh2d: Stored mesh data. nelem = "+str(self.nelem)+", npoin = "+str(self.npoin)+", nbface = "+str(self.nbface))
 
 
@@ -99,11 +101,11 @@ class Mesh2dIO:
         f = open(fname,'r')
         for i in range(4):
             f.readline()
-        
+
         self.npoin = int(f.readline())
         temp = np.fromfile(f, dtype=float, count=self.npoin*4, sep=" ").reshape((self.npoin,4))
         self.coords = temp[:,1:-1]
-        print("  readGmsh(): Coords read. Shape of coords is "+str(self.coords.shape))
+        #print("  readGmsh(): Coords read. Shape of coords is "+str(self.coords.shape))
 
         for i in range(2):
             f.readline()
@@ -177,7 +179,7 @@ class Mesh2dIO:
                 ielem += 1
             else:
                 print("! readGmsh(): ! Invalid element type!")
-        
+
         if ielem != self.nelem or iface != self.nbface:
             print("Mesh2d: readGmsh(): ! Error in adding up!")
 

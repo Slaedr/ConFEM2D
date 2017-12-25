@@ -6,11 +6,11 @@ import numpy.linalg
 from numpy import sin, cos, arctan
 #from numba import jit, jitclass, int32, int64, float64, void, typeof
 import scipy.special as scp
-from mesh import *
-from matrices import COOMatrix
-from coeff_functions import *
-from quadrature import GLQuadrature1D, GLQuadrature2DTriangle
-from elements import *
+from .mesh import *
+from .matrices import COOMatrix
+from .coeff_functions import *
+from .quadrature import GLQuadrature1D, GLQuadrature2DTriangle
+from .elements import *
 
 np.set_printoptions(linewidth=200)
 
@@ -240,7 +240,7 @@ def assemble_stiffness(m, A, pdeg, ngauss, coeff_stiff):
 
     integ2d = GLQuadrature2DTriangle(ngauss)
 
-    print("  assemble(): Beginning stiffness assembly loop")
+    #print("  assemble(): Beginning stiffness assembly loop")
 
     # iterate over the elements and add contributions
     for ielem in range(m.nelem):
@@ -278,7 +278,7 @@ def assemble_mass(m, A, pdeg, ngauss, coeff_mass):
 
     integ2d = GLQuadrature2DTriangle(ngauss)
 
-    print("  assemble(): Beginning mass assembly loop")
+    #print("  assemble(): Beginning mass assembly loop")
 
     # iterate over the elements and add contributions
     for ielem in range(m.nelem):
@@ -344,7 +344,7 @@ def assemble(m, dirBCnum, A, b, pdeg, ngauss, funcs):
 
     integ2d = GLQuadrature2DTriangle(ngauss)
 
-    print("assemble(): Beginning assembly loop over elements.")
+    #print("assemble(): Beginning assembly loop over elements.")
 
     # iterate over the elements and add contributions
     for ielem in range(m.nelem):
@@ -374,13 +374,14 @@ def assemble(m, dirBCnum, A, b, pdeg, ngauss, funcs):
 
 
     # penalty for Dirichlet rows and columns
-    """ For the row of each node corresponding to a Dirichlet boundary, multiply the diagonal entry by a huge number cbig,
-        and set the RHS as boundary_value * cbig. This makes other entries in the row negligible, and the nodal value becomes
+    """ For the row of each node corresponding to a Dirichlet boundary,
+        multiply the diagonal entry by a huge number cbig, and set the RHS as boundary_value * cbig.
+        This makes other entries in the row negligible, and the nodal value becomes
         (almost) equal to the required boundary value.
         I don't expect this to cause problems as the diagonal dominance of the matrix is increasing.
     """
 
-    print("assembly(): Imposing penalties on Dirichlet rows")
+    #print("assembly(): Imposing penalties on Dirichlet rows")
     cbig = 1.0e30
     dirflags = np.zeros(m.npoin,dtype=np.int64)
 
@@ -396,7 +397,8 @@ def assemble(m, dirBCnum, A, b, pdeg, ngauss, funcs):
             b[ipoin] = A[ipoin,ipoin]*dirichlet_function(m.coords[ipoin,0], m.coords[ipoin,1])"""
 
     # Since the matrix is not assembled yet, we need to make sure to multiply by cbig only once per row.
-    # Note that the new diagonal value in Dirichlet rows will be cbig*a[i,i]_1 + a[i,i]_2 ... + a[i,i]_npsup, and
+    # Note that the new diagonal value in Dirichlet rows will be
+    #  cbig*a[i,i]_1 + a[i,i]_2 ... + a[i,i]_npsup, and
     # b[i] is set to the same value times the boundary value.
 
     processed = np.zeros(m.npoin, dtype=np.int64)

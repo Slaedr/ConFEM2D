@@ -3,8 +3,9 @@
 
 import numpy as np
 from numba import jit, generated_jit, jitclass, int64, float64
-from mesh import *
-from quadrature import GLQuadrature1D, GLQuadrature2DTriangle
+
+from .mesh import *
+from .quadrature import GLQuadrature1D, GLQuadrature2DTriangle
 
 mapspec = [('degree', int64), ('phynodes', float64[:,:])]
 

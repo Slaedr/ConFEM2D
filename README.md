@@ -1,7 +1,7 @@
 ConFEM 2D
 =========
 
-Implementation of 2D finite element using continuous trial and test spaces, written in Python. Performance is achieved using the Numpy and Scipy libraries and Numba JIT compilation.
+Implementation of 2D finite elements written in Python. Performance is achieved using the Numpy and Scipy libraries and Numba JIT compilation.
 
 Finite Elements
 ---------------

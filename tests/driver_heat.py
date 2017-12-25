@@ -1,5 +1,6 @@
 
 import sys
+sys.path.append("..")
 import gc
 import numba
 import numpy as np
@@ -7,11 +8,12 @@ import scipy.sparse as scs
 import scipy.sparse.linalg as scsl
 from scipy.special import jn_zeros, j0
 from matplotlib import pyplot as plt
-from mesh import *
-from matrices import COOMatrix
-from fem import *
-from ode1 import *
-from output import *
+
+from libfem.mesh import *
+from libfem.matrices import COOMatrix
+from libfem.fem import *
+from libfem.ode1 import *
+from libfem.output import *
 
 np.set_printoptions(linewidth=200, threshold=5000)
 
@@ -19,7 +21,7 @@ np.set_printoptions(linewidth=200, threshold=5000)
 finaltime = 0.2
 dt = 0.001
 numberofmeshes = 5
-meshfile = "../Meshes-and-geometries/disc"
+meshfile = "inputs/disc"
 dirBCnum = np.array([2,])
 ngauss = 6
 a = 1.0
@@ -55,7 +57,7 @@ outs = []
 basename = meshfile.split('/')[-1]
 for imesh in range(numberofmeshes):
     meshes.append(meshfile+str(imesh)+".msh")
-    outs.append("../fem2d-results/"+basename+str(imesh)+".vtu")
+    outs.append("inputs/"+basename+str(imesh)+".vtu")
 
 data = np.zeros((numberofmeshes,2),dtype=np.float64)
 
@@ -63,7 +65,7 @@ for imesh in range(numberofmeshes):
     print("Mesh " + str(imesh))
     mio = Mesh2dIO()
     mio.readGmsh(meshes[imesh])
-    m = Mesh2d(mio.npoin, mio.nelem, mio.nbface, mio.maxnnodel, mio.maxnnofa, mio.nbtags, mio.ndtags, 
+    m = Mesh2d(mio.npoin, mio.nelem, mio.nbface, mio.maxnnodel, mio.maxnnofa, mio.nbtags, mio.ndtags,
             mio.coords, mio.inpoel, mio.bface, mio.nnodel, mio.nfael, mio.nnofa, mio.dtags)
     mio = 0
 
@@ -101,8 +103,8 @@ for imesh in range(numberofmeshes):
             print("    Time step " + str(step) + ": Time = " + str(t))
     print("  Final time = " + str(t))
 
-    writePointScalarToVTU(m, outs[imesh], "heat", un)
-    
+    #writePointScalarToVTU(m, outs[imesh], "heat", un)
+
     l2norm = compute_error(m, un, poly_degree, ngauss, finaltime, exactsol)
 
     print("Mesh " + str(imesh))

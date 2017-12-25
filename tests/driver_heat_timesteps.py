@@ -1,5 +1,6 @@
 
 import sys
+sys.path.append("..")
 import gc
 import numba
 import numpy as np
@@ -7,11 +8,12 @@ import scipy.sparse as scs
 import scipy.sparse.linalg as scsl
 from scipy.special import jn_zeros, j0
 from matplotlib import pyplot as plt
-from mesh import *
-from matrices import COOMatrix
-from fem import *
-from ode1 import *
-from output import *
+
+from libfem.mesh import *
+from libfem.matrices import COOMatrix
+from libfem.fem import *
+from libfem.ode1 import *
+from libfem.output import *
 
 np.set_printoptions(linewidth=200, threshold=5000)
 
@@ -21,7 +23,7 @@ np.set_printoptions(linewidth=200, threshold=5000)
 finaltime = 0.2
 dt = 0.01
 ntimesteps = 3
-meshfile = "../Meshes-and-geometries/discquad4"
+meshfile = "inputs/discquad4"
 dirBCnum = np.array([2,])
 ngauss = 6
 a = 0.9
@@ -60,10 +62,10 @@ for it in range(ntimesteps):
     outs.append("../fem2d-results/"+basename+"_t"+str(it)+".vtu")
 
 data = np.zeros((ntimesteps,2),dtype=np.float64)
-    
+
 mio = Mesh2dIO()
 mio.readGmsh(meshfile+".msh")
-m = Mesh2d(mio.npoin, mio.nelem, mio.nbface, mio.maxnnodel, mio.maxnnofa, mio.nbtags, mio.ndtags, 
+m = Mesh2d(mio.npoin, mio.nelem, mio.nbface, mio.maxnnodel, mio.maxnnofa, mio.nbtags, mio.ndtags,
         mio.coords, mio.inpoel, mio.bface, mio.nnodel, mio.nfael, mio.nnofa, mio.dtags)
 mio = 0
 
@@ -106,7 +108,7 @@ for it in range(ntimesteps):
         if step % 20 == 0:
             print("    Time step " + str(step) + ": Time = " + str(t))
     print("  Final time = " + str(t))
-    
+
     l2norm = compute_error(m, un, poly_degree, ngauss, finaltime, exactsol)
     print("Time-step " + str(it))
     print("  The mesh size paramter, the error's L2 norm and its H1 norm (log base 10):")
@@ -114,7 +116,7 @@ for it in range(ntimesteps):
     data[it,0] = np.log10(dt)
     data[it,1] = np.log10(l2norm)
 
-    writePointScalarToVTU(m, outs[it], "heat", un)
+    #writePointScalarToVTU(m, outs[it], "heat", un)
     dt = dt/2.0
 
 # plots

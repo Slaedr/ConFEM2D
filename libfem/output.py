@@ -3,7 +3,7 @@
 """
 
 import numpy as np
-from mesh import Mesh2d
+from .mesh import Mesh2d
 
 def writePointScalarToVTU(m, filename, scalarname, x):
     """ Writes one scalar mesh function into a VTU file.
@@ -53,5 +53,3 @@ def writePointScalarToVTU(m, filename, scalarname, x):
 
     fout.write("\t</Piece>\n</UnstructuredGrid>\n</VTKFile>")
     fout.close()
-    print(" WritePointScalarToVTU: File written.")
-
