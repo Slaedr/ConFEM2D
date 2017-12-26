@@ -108,7 +108,7 @@ def localH1SeminormError2(gmap, elem, quadrature, uvals, time, exact_grad):
 #@jit(nopython=True, cache=True)
 def localMassMatrix(gmap, elem, quadrature, mass_coeff_func, localmass):
     """ Computes the local mass matrix of element elem.
-	quadrature is the 2D quadrature contect to be used; has to be setup beforehand.
+    quadrature is the 2D quadrature contect to be used; has to be setup beforehand.
     The output array localmass needs to be pre-allocated."""
 
     ndof = localmass.shape[0]
@@ -527,7 +527,6 @@ def compute_error(m, v, pdeg, ngauss, time, exact_soln):
     integ2d = GLQuadrature2DTriangle(ngauss)
 
     l2norm = 0; h1norm = 0
-    print("compute_norm(): Computing norms...")
 
     # iterate over the elements and add contributions
     for ielem in range(m.nelem):

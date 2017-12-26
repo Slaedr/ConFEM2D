@@ -30,8 +30,8 @@ class GeometricMap:
         Returns the value of the determinant.
         """
         pass
-    def getJacobianDeterminant(self, x, y):
-        """ Returns the value of the determinant.
+    def getJacobianDeterminant(self, x):
+        """ Returns the values of the determinant at a set of points x
         """
         pass
 
@@ -47,8 +47,10 @@ class LagrangeTriangleMap(GeometricMap):
         if self.degree == 1:
             rg[:] = self.phynodes[0,:]*(1.0-x-y) + self.phynodes[1,:]*x + self.phynodes[2,:]*y
         elif self.degree == 2:
-            rg[:] = self.phynodes[0,:]*(1.0-3*x-3*y+2*x*x+2*y*y+4*x*y) + self.phynodes[1,:]*(2.0*x*x-x) + self.phynodes[2,:]*(2.0*y*y-y) + \
-                    self.phynodes[3,:]*4.0*(x-x*x-x*y) + self.phynodes[4,:]*4.0*x*y + self.phynodes[5,:]*4.0*(y-y*y-x*y)
+            rg[:] = self.phynodes[0,:]*(1.0-3*x-3*y+2*x*x+2*y*y+4*x*y) \
+                    + self.phynodes[1,:]*(2.0*x*x-x) + self.phynodes[2,:]*(2.0*y*y-y) \
+                    + self.phynodes[3,:]*4.0*(x-x*x-x*y) + self.phynodes[4,:]*4.0*x*y \
+                    + self.phynodes[5,:]*4.0*(y-y*y-x*y)
         return (rg[0],rg[1])
 
     def getJacobian(self, x, y, jac, jacinv):
@@ -59,30 +61,44 @@ class LagrangeTriangleMap(GeometricMap):
             jacinv[0,0] = jac[1,1]/jdet; jacinv[0,1] = -jac[0,1]/jdet
             jacinv[1,0] = -jac[1,0]/jdet; jacinv[1,1] = jac[0,0]/jdet
         elif self.degree == 2:
-            jac[:,0] = self.phynodes[0,:]*(-3+4*x+4*y) +self.phynodes[1,:]*(4*x-1) +self.phynodes[3,:]*4*(1-2*x-y) +self.phynodes[4,:]*4*y -self.phynodes[5,:]*4.0*y
-            jac[:,1] = self.phynodes[0,:]*(-3+4*y+4*x) +self.phynodes[2,:]*(4*y-1) -self.phynodes[3,:]*4*x +self.phynodes[4,:]*4*x +self.phynodes[5,:]*4*(1-2*y-x)
+            jac[:,0] = self.phynodes[0,:]*(-3+4*x+4*y) +self.phynodes[1,:]*(4*x-1) \
+                    +self.phynodes[3,:]*4*(1-2*x-y) +self.phynodes[4,:]*4*y -self.phynodes[5,:]*4.0*y
+            jac[:,1] = self.phynodes[0,:]*(-3+4*y+4*x) +self.phynodes[2,:]*(4*y-1) \
+                    -self.phynodes[3,:]*4*x +self.phynodes[4,:]*4*x +self.phynodes[5,:]*4*(1-2*y-x)
             jdet = jac[0,0]*jac[1,1] - jac[0,1]*jac[1,0]
             jacinv[0,0] = jac[1,1]/jdet; jacinv[0,1] = -jac[0,1]/jdet
             jacinv[1,0] = -jac[1,0]/jdet; jacinv[1,1] = jac[0,0]/jdet
         return jdet
 
-    def getJacobianDeterminant(self):
-        jac = np.zeros((2,2),dtype=np.float64)
-        jdet = 0
+    def getJacobianDeterminant(self, x):
+        # Does not work yet
+        jdet = np.zeros(x.shape[0], dtype=np.float64)
         if self.degree == 1:
+            jac = np.zeros((2,2),dtype=np.float64)
             jac[:,0] = self.phynodes[1,:]-self.phynodes[0,:]
             jac[:,1] = self.phynodes[2,:]-self.phynodes[0,:]
-            jdet = jac[0,0]*jac[1,1] - jac[0,1]*jac[1,0]
+            jdet[:] = jac[0,0]*jac[1,1] - jac[0,1]*jac[1,0]
         elif self.degree == 2:
-            jac[:,0] = self.phynodes[0,:]*(-3+4*x+4*y) +self.phynodes[1,:]*(4*x-1) +self.phynodes[3,:]*4*(1-2*x-y) +self.phynodes[4,:]*4*y -self.phynodes[5,:]*4.0*y
-            jac[:,1] = self.phynodes[0,:]*(-3+4*y+4*x) +self.phynodes[2,:]*(4*y-1) -self.phynodes[3,:]*4*x +self.phynodes[4,:]*4*x +self.phynodes[5,:]*4*(1-2*y-x)
-            jdet = jac[0,0]*jac[1,1] - jac[0,1]*jac[1,0]
+            jac = np.zeros((x.shape[0],2,2),dtype=np.float64)
+            jac[:,:,0] = np.outer(-3+4*x[:,0]+4*x[:,1],self.phynodes[0,:]) \
+                    +np.outer(4*x[:,0]-1,              self.phynodes[1,:]) \
+                    +np.outer(4*(1-2*x[:,0]-x[:,1]),   self.phynodes[3,:]) \
+                    +np.outer(4*x[:,1],                self.phynodes[4,:]) \
+                    -np.outer(4.0*x[:,1],              self.phynodes[5,:])
+            jac[:,:,1] = self.phynodes[0,:]*(-3+4*y+4*x) \
+                    +self.phynodes[2,:]*(4*y-1) \
+                    -self.phynodes[3,:]*4*x \
+                    +self.phynodes[4,:]*4*x \
+                    +self.phynodes[5,:]*4*(1-2*y-x)
+            jdet[:] = jac[:,0,0]*jac[:,1,1] - jac[:,0,1]*jac[:,1,0]
         return jdet
 
 elemspec = [('degree', int64), ('ndof', int64)]
 
 class Element:
-    """ @brief Abstract class for a finite element with basis functions defined on the reference element.
+    """ @brief Abstract class for a finite element 
+    with basis functions defined on the reference element.
+
     Members are
     nnodel: number of nodes in the element
     phynodes: locations of physical nodes
@@ -95,8 +111,10 @@ class Element:
         self.ndof = 1
 
     def getBasisFunctions(self, x, y, bvals):
-        """ Returns the basis function value on the reference element as a function of reference coordinates.
-        bvals must be preallocated as ndofs x 1. On return, it contains values of the basis function at (x,y).
+        """ Returns the basis function value on the reference element 
+        as a function of reference coordinates.
+        bvals must be preallocated as ndofs x 1. 
+        On return, it contains values of the basis function at (x,y).
         """
         pass
 
